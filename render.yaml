@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: agrolink-web
+    runtime: node
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: NEXT_PUBLIC_API_URL
+        value: https://agrolink-web.onrender.com # Ajustar según sea necesario

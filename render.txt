@@ -1,0 +1,32 @@
+# Guía de Despliegue en Render (AgroLink)
+
+El error que viste (`cargo build --release`) ocurrió porque Render intentó detectar el proyecto como **Rust** o se configuró mal el entorno. Como tu proyecto es de **Next.js (Node.js)**, sigue estos pasos para solucionarlo:
+
+### 1. Corregir la Configuración en el Dashboard de Render:
+1.  Ve a tu dashboard en [Render.com](https://dashboard.render.com).
+2.  Selecciona tu servicio (ej. `agrolink123`).
+3.  Ve a la pestaña **Settings** (Configuración).
+4.  Busca la sección **Build & Deploy** y cambia lo siguiente:
+    *   **Runtime:** Cambia de `Rust` a **`Node`**.
+    *   **Build Command:** Debe ser `npm install && npm run build`.
+    *   **Start Command:** Debe ser `npm start`.
+5.  Haz clic en **Save Changes** (Guardar cambios).
+
+### 2. Uso del archivo `render.yaml`:
+He creado un archivo `render.yaml` en la raíz de tu proyecto. Este archivo (Blueprint) automatiza toda la configuración. Para usarlo:
+1.  En la página principal de Render, usa el botón "New +" y elige **Blueprint**.
+2.  Conecta tu repositorio de GitHub.
+3.  Render leerá el archivo `render.yaml` y configurará todo automáticamente.
+
+### 3. Sube los cambios a GitHub:
+Para que Render vea el nuevo archivo `render.yaml`, ejecuta:
+```bash
+git add .
+git commit -m "Añadiendo configuración de Render para Node.js"
+git push
+```
+
+### 4. Base de Datos (Importante):
+Recuerda que tu backend espera una base de datos MySQL. En Render deberás:
+1.  Crear una base de datos MySQL (Render tiene un servicio administrado para eso).
+2.  Configurar las variables de entorno (`DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`) en el dashboard de Render si vas a usar una base de datos en la nube.
