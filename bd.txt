@@ -310,7 +310,7 @@ ON CONFLICT (id) DO NOTHING;
 SELECT setval('productos_id_seq', (SELECT MAX(id) FROM productos));
 
 -- Empresas
-INSERT INTO empresas (id, nombre, tipo, rfc, email, telefono, direccion, ciudad, estado, activo, created_at) VALUES
+INSERT INTO empresas (id, nombre, tipo, rfc, email, password, telefono, direccion, ciudad, estado, activo, created_at) VALUES
 (1, 'La Cocina de Maria',               'restaurante',    'CMR210315AB1', 'contacto@lacocinademaria.mx', '$2b$10$EixZAYVK1VzKNzQbBZguHeqpZtHGW.6A23.K4.f0sC6X0bB1Q6t2q', '442-123-4567', 'Av. Universidad 234, Col. Centro',          'Queretaro',        'Queretaro',    TRUE,  '2025-02-01 09:00:00+00'),
 (2, 'Super Frescos del Norte',           'supermercado',   'SFN190820CD2', 'compras@superfrescos.mx',     '$2b$10$EixZAYVK1VzKNzQbBZguHeqpZtHGW.6A23.K4.f0sC6X0bB1Q6t2q', '818-234-5678', 'Blvd. Rogelio Cantu 500, Col. Valle',       'Monterrey',        'Nuevo Leon',   TRUE,  '2025-02-10 09:00:00+00'),
 (3, 'Distribuidora Agricola del Bajio',  'distribuidor',   'DAB180512EF3', 'ventas@disbajio.mx',          '$2b$10$EixZAYVK1VzKNzQbBZguHeqpZtHGW.6A23.K4.f0sC6X0bB1Q6t2q', '461-345-6789', 'Carr. Celaya-Salamanca Km 5',               'Celaya',           'Guanajuato',   TRUE,  '2025-03-05 09:00:00+00'),
