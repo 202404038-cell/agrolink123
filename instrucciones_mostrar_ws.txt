@@ -1,0 +1,141 @@
+Instrucciones para ejecutar desde `app.py` y mostrar la información de la WS
+
+Resumen
+- Objetivo: Permitir que el backend Python (ejecutado desde `app.py`) exponga un endpoint con la información de la WS y que el botón "Mostrar WS" del frontend muestre dicha información.
+
+Modificaciones necesarias (resumen)
+- Backend (archivo: [app.py](app.py)): añadir un endpoint HTTP (por ejemplo `/ws-info`) que devuelva JSON con la información de la WS.
+- CORS: permitir peticiones del frontend desde el servidor Python.
+- Frontend (archivo sugerido: [app/dashboard/page.tsx](app/dashboard/page.tsx)): añadir o actualizar el botón "Mostrar WS" para hacer `fetch` al endpoint y mostrar los datos.
+- Variables de entorno: configurar `API_URL` en `.env.local` para apuntar al backend Python (ej. `http://localhost:8000`).
+- Comandos de ejecución y verificación.
+
+1) Backend - ejemplo mínimo usando FastAPI (colocar en `app.py` o adaptar a tu `app.py` existente)
+
+- Requisitos Python (sólo si aún no están instalados):
+  - Python 3.8+
+  - Paquetes: `fastapi`, `uvicorn`, `python-dotenv` (opcional si usas `.env`).
+
+- Instalación rápida:
+```
+python -m venv .venv
+.venv\Scripts\activate
+pip install fastapi uvicorn python-dotenv
+```
+
+- Ejemplo de `app.py` (FastAPI):
+```python
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+app = FastAPI()
+
+# Permitir CORS para el frontend (ajusta el origen según sea necesario)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Ejemplo: obtener información de la WS (reemplaza la lógica por la tuya)
+@app.get('/ws-info')
+async def ws_info():
+    # TODO: reemplazar con recuperación real de la WS
+    ws_data = {
+        'status': 'connected',
+        'clients': 5,
+        'last_ping': '2026-03-06T12:00:00Z',
+    }
+    return ws_data
+
+# Para ejecutar: uvicorn app:app --reload --port 8000
+```
+
+- Si tu `app.py` ya tiene lógica, añade el endpoint `/ws-info` que devuelva la estructura JSON que el frontend espera.
+
+2) Frontend - añadir botón "Mostrar WS" y mostrar la información
+
+- Archivo sugerido: [app/dashboard/page.tsx](app/dashboard/page.tsx)
+- Asegúrate de que el frontend use la variable `API_URL` (o usa la ruta completa si lo prefieres).
+
+Ejemplo de componente/fragmento en React/TSX:
+```tsx
+import { useState } from 'react'
+
+export default function MostrarWsButton() {
+  const [data, setData] = useState<any>(null)
+  const [loading, setLoading] = useState(false)
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+
+  async function handleClick() {
+    setLoading(true)
+    try {
+      const res = await fetch(`${apiUrl}/ws-info`)
+      if (!res.ok) throw new Error('Error al obtener WS')
+      const json = await res.json()
+      setData(json)
+    } catch (err) {
+      console.error(err)
+      setData({ error: String(err) })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div>
+      <button onClick={handleClick} disabled={loading}>
+        {loading ? 'Cargando...' : 'Mostrar WS'}
+      </button>
+      {data && (
+        <pre style={{ whiteSpace: 'pre-wrap', marginTop: 8 }}>{JSON.stringify(data, null, 2)}</pre>
+      )}
+    </div>
+  )
+}
+```
+
+- Inserta este componente donde quieras en el dashboard (por ejemplo en [app/dashboard/page.tsx](app/dashboard/page.tsx)).
+
+3) Variables de entorno
+- En Next.js crea/edita `.env.local` y añade:
+```
+NEXT_PUBLIC_API_URL=http://localhost:8000
+```
+- Reinicia el servidor de Next.js si estaba en ejecución para cargar la variable.
+
+4) Comandos para ejecutar (orden sugerida)
+- Backend Python:
+```
+# activar virtualenv (Windows)
+.venv\Scripts\activate
+# arrancar FastAPI
+uvicorn app:app --reload --port 8000
+```
+- Frontend Next.js (en la raíz del repo):
+```
+pnpm install   # o npm install / yarn
+pnpm dev       # o npm run dev
+```
+
+5) Verificación
+- Abre el navegador en `http://localhost:3000` (o el puerto que use Next.js).
+- Navega a la página con el botón "Mostrar WS" y pulsa el botón.
+- Debes ver el JSON devuelto por `http://localhost:8000/ws-info` mostrado en pantalla.
+- Si hay errores en consola del navegador, revisa el endpoint y CORS en el backend.
+
+6) Errores comunes y solución rápida
+- Error CORS: asegurarse de que `allow_origins` incluya el origen del frontend (ej. `http://localhost:3000`).
+- 404 en `/ws-info`: confirmar que `app.py` exporte `app` y que uvicorn arranca con `app:app`.
+- Variable de entorno no leída en Next.js: reiniciar `pnpm dev` y usar `NEXT_PUBLIC_` prefijo para exponer a cliente.
+
+7) Notas finales
+- Ajusta las rutas y puertos según tu entorno real.
+- Si en lugar de FastAPI usas otro framework (Flask, Django), el concepto es el mismo: exponer `/ws-info` y permitir CORS.
+- Si la "WS" en tu proyecto es un websocket real, puedes crear un endpoint REST que lea el estado actual y lo devuelva en JSON; de lo contrario ofrece un canal websocket desde el frontend si necesitas push en tiempo real.
+
+Si quieres, puedo:
+- Implementar automáticamente el endpoint en `app.py` real y añadir el componente en [app/dashboard/page.tsx](app/dashboard/page.tsx).
+- O adaptar las instrucciones al framework Python que ya uses (Flask/Django/etc.).
