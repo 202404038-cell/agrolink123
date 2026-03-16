@@ -15,7 +15,7 @@ const createEmpresaSchema = z.object({
 })
 
 export async function GET(request: NextRequest) {
-  const auth = authenticateRequest(request)
+  const auth = await authenticateRequest(request)
   if (!isAuthenticated(auth)) return auth
 
   const { searchParams } = new URL(request.url)
@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
     limit: searchParams.get("limit") ? Math.min(Number(searchParams.get("limit")), 100) : 20,
   }
 
-  const { data, total } = db.getEmpresas(filters)
+  const { data, total } = await db.getEmpresas(filters)
   return successResponse(data, "Empresas obtenidas exitosamente", {
     total,
     page: filters.page!,
@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = authenticateRequest(request)
+  const auth = await authenticateRequest(request)
   if (!isAuthenticated(auth)) return auth
 
   try {
@@ -47,9 +47,10 @@ export async function POST(request: NextRequest) {
       return errorResponse("VALIDATION_ERROR", parsed.error.errors.map((e) => e.message).join(", "))
     }
 
-    const empresa = db.createEmpresa(parsed.data)
+    const empresa = await db.createEmpresa(parsed.data)
     return successResponse(empresa, "Empresa creada exitosamente")
-  } catch {
-    return errorResponse("INVALID_BODY", "El cuerpo de la peticion no es JSON valido")
+  } catch (error) {
+    console.error(error)
+    return errorResponse("SERVER_ERROR", "Error interno del servidor")
   }
 }

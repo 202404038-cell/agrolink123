@@ -14,7 +14,7 @@ const createPedidoSchema = z.object({
 })
 
 export async function GET(request: NextRequest) {
-  const auth = authenticateRequest(request)
+  const auth = await authenticateRequest(request)
   if (!isAuthenticated(auth)) return auth
 
   const { searchParams } = new URL(request.url)
@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
     limit: searchParams.get("limit") ? Math.min(Number(searchParams.get("limit")), 100) : 20,
   }
 
-  const { data, total } = db.getPedidos(filters)
+  const { data, total } = await db.getPedidos(filters)
   return successResponse(data, "Pedidos obtenidos exitosamente", {
     total,
     page: filters.page!,
@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = authenticateRequest(request)
+  const auth = await authenticateRequest(request)
   if (!isAuthenticated(auth)) return auth
 
   try {
@@ -46,19 +46,20 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate empresa exists
-    const empresa = db.getEmpresaById(parsed.data.empresa_id)
+    const empresa = await db.getEmpresaById(parsed.data.empresa_id)
     if (!empresa) return errorResponse("INVALID_REFERENCE", "La empresa especificada no existe")
 
     // Validate all products exist
     for (const item of parsed.data.items) {
-      const prod = db.getProductoById(item.producto_id)
+      const prod = await db.getProductoById(item.producto_id)
       if (!prod) return errorResponse("INVALID_REFERENCE", `El producto con ID ${item.producto_id} no existe`)
       if (!prod.activo) return errorResponse("PRODUCT_INACTIVE", `El producto "${prod.nombre}" no esta activo`)
     }
 
-    const pedido = db.createPedido(parsed.data)
+    const pedido = await db.createPedido(parsed.data)
     return successResponse(pedido, "Pedido creado exitosamente")
-  } catch {
-    return errorResponse("INVALID_BODY", "El cuerpo de la peticion no es JSON valido")
+  } catch (error) {
+    console.error(error)
+    return errorResponse("SERVER_ERROR", "Error interno del servidor")
   }
 }

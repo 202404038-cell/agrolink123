@@ -1,3 +1,4 @@
+import { Pool } from 'pg';
 import type {
   Categoria,
   Producto,
@@ -12,90 +13,69 @@ import type {
   EstadoPedido,
   Stats,
 } from "./types"
-import {
-  categoriasSeed,
-  productosSeed,
-  empresasSeed,
-  apiKeysSeed,
-  pedidosSeed,
-  detallePedidosSeed,
-} from "./seed-data"
 
-// In-memory database simulating MySQL structure
+// Configuración del Pool de PostgreSQL (Supabase)
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false // Requerido para Supabase en muchas configuraciones de cliente
+  }
+});
+
 class Database {
-  categorias: Categoria[]
-  productos: Producto[]
-  empresas: Empresa[]
-  api_keys: ApiKey[]
-  pedidos: Pedido[]
-  detalle_pedidos: DetallePedido[]
-
-  private nextIds: Record<string, number>
-
-  constructor() {
-    this.categorias = [...categoriasSeed]
-    this.productos = [...productosSeed]
-    this.empresas = [...empresasSeed]
-    this.api_keys = [...apiKeysSeed]
-    this.pedidos = [...pedidosSeed]
-    this.detalle_pedidos = [...detallePedidosSeed]
-
-    this.nextIds = {
-      categorias: 7,
-      productos: 19,
-      empresas: 8,
-      api_keys: 8,
-      pedidos: 11,
-      detalle_pedidos: 63,
+  private async query<T>(text: string, params?: any[]): Promise<T[]> {
+    const client = await pool.connect();
+    try {
+      const res = await client.query(text, params);
+      return res.rows;
+    } finally {
+      client.release();
     }
-  }
-
-  private getNextId(table: string): number {
-    const id = this.nextIds[table]
-    this.nextIds[table] = id + 1
-    return id
-  }
-
-  private now(): string {
-    return new Date().toISOString()
   }
 
   // --- CATEGORIAS ---
-  getCategorias(): Categoria[] {
-    return [...this.categorias]
+  async getCategorias(): Promise<Categoria[]> {
+    return this.query<Categoria>("SELECT * FROM categorias ORDER BY nombre ASC");
   }
 
-  getCategoriaById(id: number): Categoria | undefined {
-    return this.categorias.find((c) => c.id === id)
+  async getCategoriaById(id: number): Promise<Categoria | undefined> {
+    const rows = await this.query<Categoria>("SELECT * FROM categorias WHERE id = $1", [id]);
+    return rows[0];
   }
 
-  createCategoria(data: CreateCategoriaDTO): Categoria {
-    const cat: Categoria = {
-      id: this.getNextId("categorias"),
-      nombre: data.nombre,
-      descripcion: data.descripcion || "",
-      created_at: this.now(),
-    }
-    this.categorias.push(cat)
-    return cat
+  async createCategoria(data: CreateCategoriaDTO): Promise<Categoria> {
+    const rows = await this.query<Categoria>(
+      "INSERT INTO categorias (nombre, descripcion) VALUES ($1, $2) RETURNING *",
+      [data.nombre, data.descripcion || ""]
+    );
+    return rows[0];
   }
 
-  updateCategoria(id: number, data: Partial<CreateCategoriaDTO>): Categoria | null {
-    const idx = this.categorias.findIndex((c) => c.id === id)
-    if (idx === -1) return null
-    this.categorias[idx] = { ...this.categorias[idx], ...data }
-    return this.categorias[idx]
+  async updateCategoria(id: number, data: Partial<CreateCategoriaDTO>): Promise<Categoria | null> {
+    const fields: string[] = [];
+    const values: any[] = [];
+    let idx = 1;
+
+    if (data.nombre) { fields.push(`nombre = $${idx++}`); values.push(data.nombre); }
+    if (data.descripcion !== undefined) { fields.push(`descripcion = $${idx++}`); values.push(data.descripcion); }
+
+    if (fields.length === 0) return this.getCategoriaById(id).then(c => c || null);
+
+    values.push(id);
+    const rows = await this.query<Categoria>(
+      `UPDATE categorias SET ${fields.join(', ')} WHERE id = $${idx} RETURNING *`,
+      values
+    );
+    return rows[0] || null;
   }
 
-  deleteCategoria(id: number): boolean {
-    const idx = this.categorias.findIndex((c) => c.id === id)
-    if (idx === -1) return false
-    this.categorias.splice(idx, 1)
-    return true
+  async deleteCategoria(id: number): Promise<boolean> {
+    const res = await pool.query("DELETE FROM categorias WHERE id = $1", [id]);
+    return (res.rowCount ?? 0) > 0;
   }
 
   // --- PRODUCTOS ---
-  getProductos(filters?: {
+  async getProductos(filters?: {
     categoria_id?: number
     activo?: boolean
     search?: string
@@ -103,355 +83,414 @@ class Database {
     limit?: number
     sort_by?: string
     sort_order?: "asc" | "desc"
-  }): { data: Producto[]; total: number } {
-    let results = [...this.productos]
+  }): Promise<{ data: Producto[]; total: number }> {
+    let where = "WHERE 1=1";
+    const params: any[] = [];
+    let idx = 1;
 
     if (filters?.categoria_id) {
-      results = results.filter((p) => p.categoria_id === filters.categoria_id)
+      where += ` AND categoria_id = $${idx++}`;
+      params.push(filters.categoria_id);
     }
     if (filters?.activo !== undefined) {
-      results = results.filter((p) => p.activo === filters.activo)
+      where += ` AND activo = $${idx++}`;
+      params.push(filters.activo);
     }
     if (filters?.search) {
-      const s = filters.search.toLowerCase()
-      results = results.filter(
-        (p) => p.nombre.toLowerCase().includes(s) || p.descripcion.toLowerCase().includes(s)
-      )
+      where += ` AND (LOWER(nombre) LIKE $${idx} OR LOWER(descripcion) LIKE $${idx})`;
+      params.push(`%${filters.search.toLowerCase()}%`);
+      idx++;
     }
 
+    const countRes = await this.query<{ count: string }>(`SELECT COUNT(*) FROM productos ${where}`, params);
+    const total = parseInt(countRes[0].count);
+
+    let orderBy = "ORDER BY created_at DESC";
     if (filters?.sort_by) {
-      const order = filters.sort_order === "desc" ? -1 : 1
-      results.sort((a, b) => {
-        const aVal = a[filters.sort_by as keyof Producto]
-        const bVal = b[filters.sort_by as keyof Producto]
-        if (typeof aVal === "number" && typeof bVal === "number") return (aVal - bVal) * order
-        return String(aVal).localeCompare(String(bVal)) * order
-      })
+      const direction = filters.sort_order === "desc" ? "DESC" : "ASC";
+      // Validar sort_by para evitar inyección SQL simple
+      const allowed = ["id", "nombre", "precio_mayoreo", "cantidad_disponible", "created_at"];
+      if (allowed.includes(filters.sort_by)) {
+        orderBy = `ORDER BY ${filters.sort_by} ${direction}`;
+      }
     }
 
-    const total = results.length
-    const page = filters?.page || 1
-    const limit = filters?.limit || 20
-    const start = (page - 1) * limit
-    results = results.slice(start, start + limit)
+    const page = filters?.page || 1;
+    const limit = filters?.limit || 20;
+    const offset = (page - 1) * limit;
 
-    return { data: results, total }
+    const dataParams = [...params, limit, offset];
+    const data = await this.query<Producto>(
+      `SELECT * FROM productos ${where} ${orderBy} LIMIT $${idx++} OFFSET $${idx++}`,
+      dataParams
+    );
+
+    return { data, total };
   }
 
-  getProductoById(id: number): Producto | undefined {
-    return this.productos.find((p) => p.id === id)
+  async getProductoById(id: number): Promise<Producto | undefined> {
+    const rows = await this.query<Producto>("SELECT * FROM productos WHERE id = $1", [id]);
+    return rows[0];
   }
 
-  createProducto(data: CreateProductoDTO): Producto {
-    const prod: Producto = {
-      id: this.getNextId("productos"),
-      nombre: data.nombre,
-      categoria_id: data.categoria_id,
-      precio_mayoreo: data.precio_mayoreo,
-      unidad_medida: data.unidad_medida,
-      cantidad_disponible: data.cantidad_disponible,
-      fecha_cosecha: data.fecha_cosecha || "",
-      fecha_caducidad: data.fecha_caducidad || "",
-      descripcion: data.descripcion || "",
-      imagen_url: data.imagen_url || "",
-      activo: true,
-      created_at: this.now(),
-      updated_at: this.now(),
+  async createProducto(data: CreateProductoDTO): Promise<Producto> {
+    const rows = await this.query<Producto>(
+      `INSERT INTO productos (nombre, categoria_id, precio_mayoreo, unidad_medida, cantidad_disponible, fecha_cosecha, fecha_caducidad, descripcion, imagen_url) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+      [data.nombre, data.categoria_id, data.precio_mayoreo, data.unidad_medida, data.cantidad_disponible, data.fecha_cosecha || null, data.fecha_caducidad || null, data.descripcion || "", data.imagen_url || ""]
+    );
+    return rows[0];
+  }
+
+  async updateProducto(id: number, data: Partial<CreateProductoDTO & { activo: boolean }>): Promise<Producto | null> {
+    const fields: string[] = [];
+    const values: any[] = [];
+    let idx = 1;
+
+    const allowedFields = ["nombre", "categoria_id", "precio_mayoreo", "unidad_medida", "cantidad_disponible", "fecha_cosecha", "fecha_caducidad", "descripcion", "imagen_url", "activo"];
+    
+    for (const key of allowedFields) {
+      if ((data as any)[key] !== undefined) {
+        fields.push(`${key} = $${idx++}`);
+        values.push((data as any)[key]);
+      }
     }
-    this.productos.push(prod)
-    return prod
+
+    if (fields.length === 0) return this.getProductoById(id).then(p => p || null);
+
+    fields.push(`updated_at = NOW()`);
+    values.push(id);
+    const rows = await this.query<Producto>(
+      `UPDATE productos SET ${fields.join(', ')} WHERE id = $${idx} RETURNING *`,
+      values
+    );
+    return rows[0] || null;
   }
 
-  updateProducto(id: number, data: Partial<CreateProductoDTO & { activo: boolean }>): Producto | null {
-    const idx = this.productos.findIndex((p) => p.id === id)
-    if (idx === -1) return null
-    this.productos[idx] = { ...this.productos[idx], ...data, updated_at: this.now() }
-    return this.productos[idx]
-  }
-
-  deleteProducto(id: number): boolean {
-    const idx = this.productos.findIndex((p) => p.id === id)
-    if (idx === -1) return false
-    this.productos.splice(idx, 1)
-    return true
+  async deleteProducto(id: number): Promise<boolean> {
+    const res = await pool.query("DELETE FROM productos WHERE id = $1", [id]);
+    return (res.rowCount ?? 0) > 0;
   }
 
   // --- EMPRESAS ---
-  getEmpresas(filters?: {
+  async getEmpresas(filters?: {
     tipo?: string
     activo?: boolean
     search?: string
     page?: number
     limit?: number
-  }): { data: Empresa[]; total: number } {
-    let results = [...this.empresas]
+  }): Promise<{ data: Empresa[]; total: number }> {
+    let where = "WHERE 1=1";
+    const params: any[] = [];
+    let idx = 1;
 
     if (filters?.tipo) {
-      results = results.filter((e) => e.tipo === filters.tipo)
+      where += ` AND tipo = $${idx++}`;
+      params.push(filters.tipo);
     }
     if (filters?.activo !== undefined) {
-      results = results.filter((e) => e.activo === filters.activo)
+      where += ` AND activo = $${idx++}`;
+      params.push(filters.activo);
     }
     if (filters?.search) {
-      const s = filters.search.toLowerCase()
-      results = results.filter(
-        (e) => e.nombre.toLowerCase().includes(s) || e.email.toLowerCase().includes(s)
-      )
+      where += ` AND (LOWER(nombre) LIKE $${idx} OR LOWER(email) LIKE $${idx})`;
+      params.push(`%${filters.search.toLowerCase()}%`);
+      idx++;
     }
 
-    const total = results.length
-    const page = filters?.page || 1
-    const limit = filters?.limit || 20
-    const start = (page - 1) * limit
-    results = results.slice(start, start + limit)
+    const countRes = await this.query<{ count: string }>(`SELECT COUNT(*) FROM empresas ${where}`, params);
+    const total = parseInt(countRes[0].count);
 
-    return { data: results, total }
+    const page = filters?.page || 1;
+    const limit = filters?.limit || 20;
+    const offset = (page - 1) * limit;
+
+    const dataParams = [...params, limit, offset];
+    const data = await this.query<Empresa>(
+      `SELECT * FROM empresas ${where} ORDER BY nombre ASC LIMIT $${idx++} OFFSET $${idx++}`,
+      dataParams
+    );
+
+    return { data, total };
   }
 
-  getEmpresaById(id: number): Empresa | undefined {
-    return this.empresas.find((e) => e.id === id)
+  async getEmpresaById(id: number): Promise<Empresa | undefined> {
+    const rows = await this.query<Empresa>("SELECT * FROM empresas WHERE id = $1", [id]);
+    return rows[0];
   }
 
-  createEmpresa(data: CreateEmpresaDTO): Empresa {
-    const emp: Empresa = {
-      id: this.getNextId("empresas"),
-      nombre: data.nombre,
-      tipo: data.tipo,
-      rfc: data.rfc,
-      email: data.email,
-      telefono: data.telefono || "",
-      direccion: data.direccion || "",
-      ciudad: data.ciudad || "",
-      estado: data.estado || "",
-      activo: true,
-      created_at: this.now(),
+  async createEmpresa(data: CreateEmpresaDTO): Promise<Empresa> {
+    const rows = await this.query<Empresa>(
+      `INSERT INTO empresas (nombre, tipo, rfc, email, telefono, direccion, ciudad, estado) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+      [data.nombre, data.tipo, data.rfc, data.email, data.telefono || "", data.direccion || "", data.ciudad || "", data.estado || ""]
+    );
+    return rows[0];
+  }
+
+  async updateEmpresa(id: number, data: Partial<CreateEmpresaDTO & { activo: boolean }>): Promise<Empresa | null> {
+    const fields: string[] = [];
+    const values: any[] = [];
+    let idx = 1;
+
+    const allowedFields = ["nombre", "tipo", "rfc", "email", "telefono", "direccion", "ciudad", "estado", "activo"];
+    for (const key of allowedFields) {
+      if ((data as any)[key] !== undefined) {
+        fields.push(`${key} = $${idx++}`);
+        values.push((data as any)[key]);
+      }
     }
-    this.empresas.push(emp)
-    return emp
+
+    if (fields.length === 0) return this.getEmpresaById(id).then(e => e || null);
+
+    values.push(id);
+    const rows = await this.query<Empresa>(
+      `UPDATE empresas SET ${fields.join(', ')} WHERE id = $${idx} RETURNING *`,
+      values
+    );
+    return rows[0] || null;
   }
 
-  updateEmpresa(id: number, data: Partial<CreateEmpresaDTO & { activo: boolean }>): Empresa | null {
-    const idx = this.empresas.findIndex((e) => e.id === id)
-    if (idx === -1) return null
-    this.empresas[idx] = { ...this.empresas[idx], ...data }
-    return this.empresas[idx]
-  }
-
-  deleteEmpresa(id: number): boolean {
-    const idx = this.empresas.findIndex((e) => e.id === id)
-    if (idx === -1) return false
-    this.empresas.splice(idx, 1)
-    return true
+  async deleteEmpresa(id: number): Promise<boolean> {
+    const res = await pool.query("DELETE FROM empresas WHERE id = $1", [id]);
+    return (res.rowCount ?? 0) > 0;
   }
 
   // --- API KEYS ---
-  getApiKeys(): ApiKey[] {
-    return [...this.api_keys]
+  async getApiKeys(): Promise<ApiKey[]> {
+    return this.query<ApiKey>("SELECT * FROM api_keys ORDER BY created_at DESC");
   }
 
-  getApiKeysByEmpresa(empresaId: number): ApiKey[] {
-    return this.api_keys.filter((k) => k.empresa_id === empresaId)
+  async getApiKeysByEmpresa(empresaId: number): Promise<ApiKey[]> {
+    return this.query<ApiKey>("SELECT * FROM api_keys WHERE empresa_id = $1", [empresaId]);
   }
 
-  validateApiKey(key: string): { valid: boolean; empresa?: Empresa } {
-    const apiKey = this.api_keys.find((k) => k.api_key === key && k.activo)
-    if (!apiKey) return { valid: false }
+  async validateApiKey(key: string): Promise<{ valid: boolean; empresa?: Empresa }> {
+    const query = `
+      SELECT a.*, e.nombre as empresa_nombre, e.activo as empresa_activo
+      FROM api_keys a
+      JOIN empresas e ON a.empresa_id = e.id
+      WHERE a.api_key = $1 AND a.activo = true AND e.activo = true
+    `;
+    const rows = await this.query<any>(query, [key]);
+    
+    if (rows.length === 0) return { valid: false };
 
-    const empresa = this.empresas.find((e) => e.id === apiKey.empresa_id && e.activo)
-    if (!empresa) return { valid: false }
+    // Update last use async
+    pool.query("UPDATE api_keys SET ultimo_uso = NOW() WHERE api_key = $1", [key]);
 
-    // Update last use
-    const idx = this.api_keys.findIndex((k) => k.id === apiKey.id)
-    if (idx !== -1) this.api_keys[idx].ultimo_uso = this.now()
+    // Re-fetch full empresa for compatibility
+    const empresa = await this.getEmpresaById(rows[0].empresa_id);
 
-    return { valid: true, empresa }
+    return { valid: true, empresa };
   }
 
-  createApiKey(empresaId: number, nombre: string): ApiKey {
+  async createApiKey(empresaId: number, nombre: string): Promise<ApiKey> {
     const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
     let randomPart = ""
     for (let i = 0; i < 24; i++) {
       randomPart += chars.charAt(Math.floor(Math.random() * chars.length))
     }
-    const key: ApiKey = {
-      id: this.getNextId("api_keys"),
-      empresa_id: empresaId,
-      api_key: `ak_live_${randomPart}`,
-      nombre,
-      activo: true,
-      ultimo_uso: null,
-      created_at: this.now(),
-    }
-    this.api_keys.push(key)
-    return key
+    const keyString = `ak_live_${randomPart}`;
+    
+    const rows = await this.query<ApiKey>(
+      "INSERT INTO api_keys (empresa_id, api_key, nombre) VALUES ($1, $2, $3) RETURNING *",
+      [empresaId, keyString, nombre]
+    );
+    return rows[0];
   }
 
-  toggleApiKey(id: number): ApiKey | null {
-    const idx = this.api_keys.findIndex((k) => k.id === id)
-    if (idx === -1) return null
-    this.api_keys[idx].activo = !this.api_keys[idx].activo
-    return this.api_keys[idx]
+  async toggleApiKey(id: number): Promise<ApiKey | null> {
+    const rows = await this.query<ApiKey>(
+      "UPDATE api_keys SET activo = NOT activo WHERE id = $1 RETURNING *",
+      [id]
+    );
+    return rows[0] || null;
   }
 
-  deleteApiKey(id: number): boolean {
-    const idx = this.api_keys.findIndex((k) => k.id === id)
-    if (idx === -1) return false
-    this.api_keys.splice(idx, 1)
-    return true
+  async deleteApiKey(id: number): Promise<boolean> {
+    const res = await pool.query("DELETE FROM api_keys WHERE id = $1", [id]);
+    return (res.rowCount ?? 0) > 0;
   }
 
   // --- PEDIDOS ---
-  getPedidos(filters?: {
+  async getPedidos(filters?: {
     empresa_id?: number
     estado?: string
     page?: number
     limit?: number
-  }): { data: Pedido[]; total: number } {
-    let results = [...this.pedidos]
+  }): Promise<{ data: Pedido[]; total: number }> {
+    let where = "WHERE 1=1";
+    const params: any[] = [];
+    let idx = 1;
 
     if (filters?.empresa_id) {
-      results = results.filter((p) => p.empresa_id === filters.empresa_id)
+      where += ` AND empresa_id = $${idx++}`;
+      params.push(filters.empresa_id);
     }
     if (filters?.estado) {
-      results = results.filter((p) => p.estado === filters.estado)
+      where += ` AND estado = $${idx++}`;
+      params.push(filters.estado);
     }
 
-    results.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    const countRes = await this.query<{ count: string }>(`SELECT COUNT(*) FROM pedidos ${where}`, params);
+    const total = parseInt(countRes[0].count);
 
-    const total = results.length
-    const page = filters?.page || 1
-    const limit = filters?.limit || 20
-    const start = (page - 1) * limit
-    results = results.slice(start, start + limit)
+    const page = filters?.page || 1;
+    const limit = filters?.limit || 20;
+    const offset = (page - 1) * limit;
 
-    return { data: results, total }
+    const dataParams = [...params, limit, offset];
+    const data = await this.query<Pedido>(
+      `SELECT * FROM pedidos ${where} ORDER BY created_at DESC LIMIT $${idx++} OFFSET $${idx++}`,
+      dataParams
+    );
+
+    return { data, total };
   }
 
-  getPedidoById(id: number): (Pedido & { detalles: (DetallePedido & { producto_nombre?: string })[], empresa_nombre?: string }) | null {
-    const pedido = this.pedidos.find((p) => p.id === id)
-    if (!pedido) return null
+  async getPedidoById(id: number): Promise<(Pedido & { detalles: (DetallePedido & { producto_nombre?: string })[], empresa_nombre?: string }) | null> {
+    const pedidoRows = await this.query<Pedido>("SELECT * FROM pedidos WHERE id = $1", [id]);
+    if (pedidoRows.length === 0) return null;
+    const pedido = pedidoRows[0];
 
-    const detalles = this.detalle_pedidos
-      .filter((d) => d.pedido_id === id)
-      .map((d) => {
-        const prod = this.productos.find((p) => p.id === d.producto_id)
-        return { ...d, producto_nombre: prod?.nombre }
-      })
-    const empresa = this.empresas.find((e) => e.id === pedido.empresa_id)
+    const detalles = await this.query<any>(`
+      SELECT d.*, p.nombre as producto_nombre
+      FROM detalle_pedidos d
+      LEFT JOIN productos p ON d.producto_id = p.id
+      WHERE d.pedido_id = $1
+    `, [id]);
 
-    return { ...pedido, detalles, empresa_nombre: empresa?.nombre }
+    const empresaRows = await this.query<Empresa>("SELECT nombre FROM empresas WHERE id = $1", [pedido.empresa_id]);
+    
+    return { 
+      ...pedido, 
+      detalles, 
+      empresa_nombre: empresaRows[0]?.nombre 
+    };
   }
 
-  createPedido(data: CreatePedidoDTO): Pedido & { detalles: DetallePedido[] } {
-    let total = 0
-    const detalles: DetallePedido[] = []
+  async createPedido(data: CreatePedidoDTO): Promise<Pedido & { detalles: DetallePedido[] }> {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      
+      let total = 0;
+      const itemsConPrecio = [];
 
-    for (const item of data.items) {
-      const producto = this.productos.find((p) => p.id === item.producto_id)
-      if (!producto) continue
-      const subtotal = producto.precio_mayoreo * item.cantidad
-      total += subtotal
-      detalles.push({
-        id: this.getNextId("detalle_pedidos"),
-        pedido_id: 0, // will set below
-        producto_id: item.producto_id,
-        cantidad: item.cantidad,
-        precio_unitario: producto.precio_mayoreo,
-        subtotal,
-      })
+      for (const item of data.items) {
+        const prodRes = await client.query("SELECT precio_mayoreo FROM productos WHERE id = $1", [item.producto_id]);
+        if (prodRes.rows.length > 0) {
+          const precio = prodRes.rows[0].precio_mayoreo;
+          const subtotal = precio * item.cantidad;
+          total += subtotal;
+          itemsConPrecio.push({ ...item, precio, subtotal });
+        }
+      }
+
+      const pedidoRes = await client.query(
+        `INSERT INTO pedidos (empresa_id, estado, total, notas, fecha_entrega_estimada) 
+         VALUES ($1, 'pendiente', $2, $3, $4) RETURNING *`,
+        [data.empresa_id, total, data.notas || "", data.fecha_entrega_estimada || null]
+      );
+      const pedido = pedidoRes.rows[0];
+
+      const detalles = [];
+      for (const item of itemsConPrecio) {
+        const detRes = await client.query(
+          `INSERT INTO detalle_pedidos (pedido_id, producto_id, cantidad, precio_unitario, subtotal) 
+           VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+          [pedido.id, item.producto_id, item.cantidad, item.precio, item.subtotal]
+        );
+        detalles.push(detRes.rows[0]);
+      }
+
+      await client.query('COMMIT');
+      return { ...pedido, detalles };
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally {
+      client.release();
     }
-
-    const pedido: Pedido = {
-      id: this.getNextId("pedidos"),
-      empresa_id: data.empresa_id,
-      estado: "pendiente",
-      total,
-      notas: data.notas || "",
-      fecha_entrega_estimada: data.fecha_entrega_estimada || "",
-      created_at: this.now(),
-      updated_at: this.now(),
-    }
-
-    this.pedidos.push(pedido)
-
-    for (const d of detalles) {
-      d.pedido_id = pedido.id
-      this.detalle_pedidos.push(d)
-    }
-
-    return { ...pedido, detalles }
   }
 
-  updatePedidoEstado(id: number, estado: EstadoPedido): Pedido | null {
-    const idx = this.pedidos.findIndex((p) => p.id === id)
-    if (idx === -1) return null
-    this.pedidos[idx].estado = estado
-    this.pedidos[idx].updated_at = this.now()
-    return this.pedidos[idx]
+  async updatePedidoEstado(id: number, estado: EstadoPedido): Promise<Pedido | null> {
+    const rows = await this.query<Pedido>(
+      "UPDATE pedidos SET estado = $1, updated_at = NOW() WHERE id = $2 RETURNING *",
+      [estado, id]
+    );
+    return rows[0] || null;
   }
 
-  deletePedido(id: number): boolean {
-    const idx = this.pedidos.findIndex((p) => p.id === id)
-    if (idx === -1) return false
-    this.pedidos[idx].estado = "cancelado"
-    this.pedidos[idx].updated_at = this.now()
-    return true
+  async deletePedido(id: number): Promise<boolean> {
+    // Soft delete or just cancel
+    const res = await pool.query(
+      "UPDATE pedidos SET estado = 'cancelado', updated_at = NOW() WHERE id = $1",
+      [id]
+    );
+    return (res.rowCount ?? 0) > 0;
   }
 
   // --- STATS ---
-  getStats(): Stats {
-    const productosActivos = this.productos.filter((p) => p.activo)
-    const pedidosNoCancel = this.pedidos.filter((p) => p.estado !== "cancelado")
+  async getStats(): Promise<Stats> {
+    const totalProd = await this.query<{ count: string }>("SELECT COUNT(*) FROM productos");
+    const totalEmp = await this.query<{ count: string }>("SELECT COUNT(*) FROM empresas");
+    const totalPed = await this.query<{ count: string }>("SELECT COUNT(*) FROM pedidos");
+    const ingresos = await this.query<{ sum: string }>("SELECT SUM(total) FROM pedidos WHERE estado != 'cancelado'");
+    const prodActivos = await this.query<{ count: string }>("SELECT COUNT(*) FROM productos WHERE activo = true");
+    const pedPend = await this.query<{ count: string }>("SELECT COUNT(*) FROM pedidos WHERE estado = 'pendiente'");
+    const pedEnt = await this.query<{ count: string }>("SELECT COUNT(*) FROM pedidos WHERE estado = 'entregado'");
 
-    const productosPorCategoria = this.categorias.map((c) => ({
-      categoria: c.nombre,
-      cantidad: this.productos.filter((p) => p.categoria_id === c.id).length,
-    }))
+    const prodPorCat = await this.query<any>(`
+      SELECT c.nombre as categoria, COUNT(p.id) as cantidad
+      FROM categorias c
+      LEFT JOIN productos p ON c.id = p.categoria_id
+      GROUP BY c.id, c.nombre
+    `);
 
-    const estados: EstadoPedido[] = ["pendiente", "confirmado", "en_preparacion", "enviado", "entregado", "cancelado"]
-    const pedidosPorEstado = estados.map((e) => ({
-      estado: e,
-      cantidad: this.pedidos.filter((p) => p.estado === e).length,
-    }))
+    const pedPorEstado = await this.query<any>(`
+      SELECT estado, COUNT(*) as cantidad
+      FROM pedidos
+      GROUP BY estado
+    `);
 
-    const meses = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
-    const ventasMensuales = meses.map((mes, idx) => {
-      const pedidosMes = pedidosNoCancel.filter((p) => {
-        const d = new Date(p.created_at)
-        return d.getMonth() === idx
-      })
-      return { mes, total: pedidosMes.reduce((sum, p) => sum + p.total, 0) }
-    })
+    // Ventas mensuales (últimos 12 meses simplificado)
+    const ventasMensuales = await this.query<any>(`
+      SELECT 
+        TO_CHAR(created_at, 'Mon') as mes,
+        EXTRACT(MONTH FROM created_at) as mes_num,
+        SUM(total) as total
+      FROM pedidos
+      WHERE estado != 'cancelado'
+      GROUP BY mes, mes_num
+      ORDER BY mes_num
+    `);
 
-    // Productos mas vendidos
-    const productoVentas: Record<number, number> = {}
-    for (const d of this.detalle_pedidos) {
-      const pedido = this.pedidos.find((p) => p.id === d.pedido_id)
-      if (pedido && pedido.estado !== "cancelado") {
-        productoVentas[d.producto_id] = (productoVentas[d.producto_id] || 0) + d.cantidad
-      }
-    }
-    const productosMasVendidos = Object.entries(productoVentas)
-      .map(([prodId, cantidad]) => {
-        const prod = this.productos.find((p) => p.id === Number(prodId))
-        return { nombre: prod?.nombre || "Desconocido", cantidad }
-      })
-      .sort((a, b) => b.cantidad - a.cantidad)
-      .slice(0, 8)
+    const prodMasVendidos = await this.query<any>(`
+      SELECT p.nombre, SUM(d.cantidad) as cantidad
+      FROM detalle_pedidos d
+      JOIN productos p ON d.producto_id = p.id
+      JOIN pedidos ped ON d.pedido_id = ped.id
+      WHERE ped.estado != 'cancelado'
+      GROUP BY p.id, p.nombre
+      ORDER BY cantidad DESC
+      LIMIT 8
+    `);
 
     return {
-      total_productos: this.productos.length,
-      total_empresas: this.empresas.length,
-      total_pedidos: this.pedidos.length,
-      ingresos_totales: pedidosNoCancel.reduce((sum, p) => sum + p.total, 0),
-      productos_activos: productosActivos.length,
-      pedidos_pendientes: this.pedidos.filter((p) => p.estado === "pendiente").length,
-      pedidos_entregados: this.pedidos.filter((p) => p.estado === "entregado").length,
-      productos_por_categoria: productosPorCategoria,
-      pedidos_por_estado: pedidosPorEstado,
-      ventas_mensuales: ventasMensuales,
-      productos_mas_vendidos: productosMasVendidos,
-    }
+      total_productos: parseInt(totalProd[0].count),
+      total_empresas: parseInt(totalEmp[0].count),
+      total_pedidos: parseInt(totalPed[0].count),
+      ingresos_totales: parseFloat(ingresos[0].sum || "0"),
+      productos_activos: parseInt(prodActivos[0].count),
+      pedidos_pendientes: parseInt(pedPend[0].count),
+      pedidos_entregados: parseInt(pedEnt[0].count),
+      productos_por_categoria: prodPorCat.map((r: any) => ({ ...r, cantidad: parseInt(r.cantidad) })),
+      pedidos_por_estado: pedPorEstado.map((r: any) => ({ ...r, cantidad: parseInt(r.cantidad) })),
+      ventas_mensuales: ventasMensuales.map((r: any) => ({ mes: r.mes, total: parseFloat(r.total) })),
+      productos_mas_vendidos: prodMasVendidos.map((r: any) => ({ ...r, cantidad: parseInt(r.cantidad) })),
+    };
   }
 }
 

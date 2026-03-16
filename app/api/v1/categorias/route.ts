@@ -9,15 +9,15 @@ const createCategoriaSchema = z.object({
 })
 
 export async function GET(request: NextRequest) {
-  const auth = authenticateRequest(request)
+  const auth = await authenticateRequest(request)
   if (!isAuthenticated(auth)) return auth
 
-  const categorias = db.getCategorias()
+  const categorias = await db.getCategorias()
   return successResponse(categorias, "Categorias obtenidas exitosamente")
 }
 
 export async function POST(request: NextRequest) {
-  const auth = authenticateRequest(request)
+  const auth = await authenticateRequest(request)
   if (!isAuthenticated(auth)) return auth
 
   try {
@@ -28,9 +28,10 @@ export async function POST(request: NextRequest) {
       return errorResponse("VALIDATION_ERROR", parsed.error.errors.map((e) => e.message).join(", "))
     }
 
-    const categoria = db.createCategoria(parsed.data)
+    const categoria = await db.createCategoria(parsed.data)
     return successResponse(categoria, "Categoria creada exitosamente")
-  } catch {
-    return errorResponse("INVALID_BODY", "El cuerpo de la peticion no es JSON valido")
+  } catch (error) {
+    console.error(error)
+    return errorResponse("SERVER_ERROR", "Error interno del servidor")
   }
 }

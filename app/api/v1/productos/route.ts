@@ -16,7 +16,7 @@ const createProductoSchema = z.object({
 })
 
 export async function GET(request: NextRequest) {
-  const auth = authenticateRequest(request)
+  const auth = await authenticateRequest(request)
   if (!isAuthenticated(auth)) return auth
 
   const { searchParams } = new URL(request.url)
@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
     sort_order: (searchParams.get("sort_order") as "asc" | "desc") || undefined,
   }
 
-  const { data, total } = db.getProductos(filters)
+  const { data, total } = await db.getProductos(filters)
   return successResponse(data, "Productos obtenidos exitosamente", {
     total,
     page: filters.page!,
@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = authenticateRequest(request)
+  const auth = await authenticateRequest(request)
   if (!isAuthenticated(auth)) return auth
 
   try {
@@ -51,12 +51,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate categoria exists
-    const cat = db.getCategoriaById(parsed.data.categoria_id)
+    const cat = await db.getCategoriaById(parsed.data.categoria_id)
     if (!cat) return errorResponse("INVALID_REFERENCE", "La categoria especificada no existe")
 
-    const producto = db.createProducto(parsed.data)
+    const producto = await db.createProducto(parsed.data)
     return successResponse(producto, "Producto creado exitosamente")
-  } catch {
-    return errorResponse("INVALID_BODY", "El cuerpo de la peticion no es JSON valido")
+  } catch (error) {
+    console.error(error)
+    return errorResponse("SERVER_ERROR", "Error interno del servidor")
   }
 }

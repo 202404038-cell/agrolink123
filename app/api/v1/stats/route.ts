@@ -3,9 +3,9 @@ import { db } from "@/lib/db"
 import { authenticateRequest, isAuthenticated, successResponse } from "@/lib/auth"
 
 export async function GET(request: NextRequest) {
-  const auth = authenticateRequest(request)
+  const auth = await authenticateRequest(request)
   if (!isAuthenticated(auth)) return auth
 
-  const stats = db.getStats()
+  const stats = await db.getStats()
   return successResponse(stats, "Estadisticas obtenidas exitosamente")
 }

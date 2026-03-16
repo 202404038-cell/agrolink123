@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server"
 import { db } from "./db"
 import type { ApiResponse } from "./types"
 
-export function authenticateRequest(
+export async function authenticateRequest(
   request: NextRequest
-): { authenticated: true; empresaId: number; empresaNombre: string } | NextResponse<ApiResponse> {
+): Promise<{ authenticated: true; empresaId: number; empresaNombre: string } | NextResponse<ApiResponse>> {
   const apiKey = request.headers.get("X-API-Key")
 
   if (!apiKey) {
@@ -20,7 +20,7 @@ export function authenticateRequest(
     )
   }
 
-  const result = db.validateApiKey(apiKey)
+  const result = await db.validateApiKey(apiKey)
 
   if (!result.valid || !result.empresa) {
     return NextResponse.json<ApiResponse>(
@@ -43,7 +43,7 @@ export function authenticateRequest(
 }
 
 export function isAuthenticated(
-  result: ReturnType<typeof authenticateRequest>
+  result: Awaited<ReturnType<typeof authenticateRequest>>
 ): result is { authenticated: true; empresaId: number; empresaNombre: string } {
   return "authenticated" in result && result.authenticated === true
 }
