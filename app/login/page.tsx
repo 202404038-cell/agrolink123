@@ -40,8 +40,9 @@ export default function LoginPage() {
       } else {
         toast.error(data.error?.message || "Error al iniciar sesión")
       }
-    } catch (err) {
-      toast.error("Error de conexión")
+    } catch (err: any) {
+      console.error("[Login Fetch Error]", err)
+      toast.error("Error de conexión: " + (err.message || "No se pudo contactar con el servidor"))
     } finally {
       setLoading(false)
     }

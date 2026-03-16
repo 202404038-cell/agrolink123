@@ -7,6 +7,7 @@ import { cookies } from "next/headers"
 export async function POST(request: NextRequest) {
   try {
     const { email, password } = await request.json()
+    console.log(`[Login Attempt] Email: ${email}`);
 
     if (!email || !password) {
       return errorResponse("MISSING_FIELDS", "Email y contraseña son requeridos")
@@ -21,8 +22,11 @@ export async function POST(request: NextRequest) {
     const passwordMatch = await bcrypt.compare(password, user.password || "")
 
     if (!passwordMatch) {
+      console.log(`[Login Failed] Invalid password for: ${email}`);
       return errorResponse("INVALID_CREDENTIALS", "Credenciales invalidas")
     }
+
+    console.log(`[Login Success] User: ${user.nombre} (${user.rol})`);
 
     const token = await createToken({
       empresaId: user.id,
@@ -46,8 +50,8 @@ export async function POST(request: NextRequest) {
       rol: user.rol
     }, "Inicio de sesion exitoso")
 
-  } catch (error) {
-    console.error("Login error:", error)
-    return errorResponse("SERVER_ERROR", "Error interno del servidor")
+  } catch (error: any) {
+    console.error(`[Login ERROR] ${error.message}`, error);
+    return errorResponse("SERVER_ERROR", "Error interno del servidor: " + error.message)
   }
 }

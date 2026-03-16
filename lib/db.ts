@@ -24,12 +24,16 @@ const pool = new Pool({
 
 class Database {
   private async query<T>(text: string, params?: any[]): Promise<T[]> {
-    const client = await pool.connect();
+    console.log(`[DB Query] Executing: ${text.substring(0, 100)}...`);
+    const start = Date.now();
     try {
-      const res = await client.query(text, params);
+      const res = await pool.query(text, params);
+      const duration = Date.now() - start;
+      console.log(`[DB Query] Completed in ${duration}ms. Rows: ${res.rowCount}`);
       return res.rows;
-    } finally {
-      client.release();
+    } catch (error: any) {
+      console.error(`[DB Query ERROR] ${error.message}`);
+      throw error;
     }
   }
 
