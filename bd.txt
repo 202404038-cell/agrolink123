@@ -77,7 +77,7 @@ CREATE TABLE IF NOT EXISTS empresas (
   tipo tipo_empresa_type NOT NULL,
   rfc VARCHAR(13) NOT NULL UNIQUE,
   email VARCHAR(255) NOT NULL UNIQUE,
-  password VARCHAR(255) NOT NULL DEFAULT '$2b$10$jIbe3qYZ6/7ywE2OasA0NuJJ3n0bCO6Ma1r1Sj40WDdBALr4Qw2Od2', -- Hash para 'agrolink123'
+  password VARCHAR(255) NOT NULL DEFAULT '$2b$10$4FjUuFNdmsU7sHXhMQDUXe56sJrhDnioPDffZTENosWAf.yXwmZw.', -- Hash para 'agrolink123'
   telefono VARCHAR(20) DEFAULT '',
   direccion TEXT DEFAULT '',
   ciudad VARCHAR(100) DEFAULT '',
@@ -311,19 +311,19 @@ SELECT setval('productos_id_seq', (SELECT MAX(id) FROM productos));
 
 -- Empresas
 INSERT INTO empresas (id, nombre, tipo, rfc, email, password, telefono, direccion, ciudad, estado, activo, created_at) VALUES
-(1, 'La Cocina de Maria',               'restaurante',    'CMR210315AB1', 'contacto@lacocinademaria.mx', '$2b$10$jIbe3qYZ6/7ywE2OasA0NuJJ3n0bCO6Ma1r1Sj40WDdBALr4Qw2Od2', '442-123-4567', 'Av. Universidad 234, Col. Centro',          'Queretaro',        'Queretaro',    TRUE,  '2025-02-01 09:00:00+00'),
-(2, 'Super Frescos del Norte',           'supermercado',   'SFN190820CD2', 'compras@superfrescos.mx',     '$2b$10$jIbe3qYZ6/7ywE2OasA0NuJJ3n0bCO6Ma1r1Sj40WDdBALr4Qw2Od2', '818-234-5678', 'Blvd. Rogelio Cantu 500, Col. Valle',       'Monterrey',        'Nuevo Leon',   TRUE,  '2025-02-10 09:00:00+00'),
-(3, 'Distribuidora Agricola del Bajio',  'distribuidor',   'DAB180512EF3', 'ventas@disbajio.mx',          '$2b$10$jIbe3qYZ6/7ywE2OasA0NuJJ3n0bCO6Ma1r1Sj40WDdBALr4Qw2Od2', '461-345-6789', 'Carr. Celaya-Salamanca Km 5',               'Celaya',           'Guanajuato',   TRUE,  '2025-03-05 09:00:00+00'),
-(4, 'Catering Gourmet CDMX',            'catering',       'CGC200105GH4', 'pedidos@cateringgourmet.mx',  '$2b$10$jIbe3qYZ6/7ywE2OasA0NuJJ3n0bCO6Ma1r1Sj40WDdBALr4Qw2Od2', '555-456-7890', 'Calle Durango 180, Col. Roma Norte',        'Ciudad de Mexico', 'CDMX',         TRUE,  '2025-03-15 09:00:00+00'),
-(5, 'Central de Abasto Puebla',          'central_abasto', 'CAP170830IJ5', 'operaciones@cabpuebla.mx',    '$2b$10$jIbe3qYZ6/7ywE2OasA0NuJJ3n0bCO6Ma1r1Sj40WDdBALr4Qw2Od2', '222-567-8901', 'Central de Abasto, Nave 3 Local 15',        'Puebla',           'Puebla',       TRUE,  '2025-04-01 09:00:00+00'),
-(6, 'Restaurante El Fogon Oaxaqueno',    'restaurante',    'RFO210710KL6', 'chef@elfogon.mx',             '$2b$10$jIbe3qYZ6/7ywE2OasA0NuJJ3n0bCO6Ma1r1Sj40WDdBALr4Qw2Od2', '951-678-9012', 'Calle Macedonio Alcala 307',                'Oaxaca',           'Oaxaca',       TRUE,  '2025-04-20 09:00:00+00'),
-(7, 'Mercado Organico Guadalajara',      'supermercado',   'MOG200220MN7', 'compras@mercadoorganico.mx',  '$2b$10$jIbe3qYZ6/7ywE2OasA0NuJJ3n0bCO6Ma1r1Sj40WDdBALr4Qw2Od2', '333-789-0123', 'Av. Chapultepec Sur 15, Col. Americana',    'Guadalajara',      'Jalisco',      FALSE, '2025-05-10 09:00:00+00')
+(1, 'La Cocina de Maria',               'restaurante',    'CMR210315AB1', 'contacto@lacocinademaria.mx', '$2b$10$4FjUuFNdmsU7sHXhMQDUXe56sJrhDnioPDffZTENosWAf.yXwmZw.', '442-123-4567', 'Av. Universidad 234, Col. Centro',          'Queretaro',        'Queretaro',    TRUE,  '2025-02-01 09:00:00+00'),
+(2, 'Super Frescos del Norte',           'supermercado',   'SFN190820CD2', 'compras@superfrescos.mx',     '$2b$10$4FjUuFNdmsU7sHXhMQDUXe56sJrhDnioPDffZTENosWAf.yXwmZw.', '818-234-5678', 'Blvd. Rogelio Cantu 500, Col. Valle',       'Monterrey',        'Nuevo Leon',   TRUE,  '2025-02-10 09:00:00+00'),
+(3, 'Distribuidora Agricola del Bajio',  'distribuidor',   'DAB180512EF3', 'ventas@disbajio.mx',          '$2b$10$4FjUuFNdmsU7sHXhMQDUXe56sJrhDnioPDffZTENosWAf.yXwmZw.', '461-345-6789', 'Carr. Celaya-Salamanca Km 5',               'Celaya',           'Guanajuato',   TRUE,  '2025-03-05 09:00:00+00'),
+(4, 'Catering Gourmet CDMX',            'catering',       'CGC200105GH4', 'pedidos@cateringgourmet.mx',  '$2b$10$4FjUuFNdmsU7sHXhMQDUXe56sJrhDnioPDffZTENosWAf.yXwmZw.', '555-456-7890', 'Calle Durango 180, Col. Roma Norte',        'Ciudad de Mexico', 'CDMX',         TRUE,  '2025-03-15 09:00:00+00'),
+(5, 'Central de Abasto Puebla',          'central_abasto', 'CAP170830IJ5', 'operaciones@cabpuebla.mx',    '$2b$10$4FjUuFNdmsU7sHXhMQDUXe56sJrhDnioPDffZTENosWAf.yXwmZw.', '222-567-8901', 'Central de Abasto, Nave 3 Local 15',        'Puebla',           'Puebla',       TRUE,  '2025-04-01 09:00:00+00'),
+(6, 'Restaurante El Fogon Oaxaqueno',    'restaurante',    'RFO210710KL6', 'chef@elfogon.mx',             '$2b$10$4FjUuFNdmsU7sHXhMQDUXe56sJrhDnioPDffZTENosWAf.yXwmZw.', '951-678-9012', 'Calle Macedonio Alcala 307',                'Oaxaca',           'Oaxaca',       TRUE,  '2025-04-20 09:00:00+00'),
+(7, 'Mercado Organico Guadalajara',      'supermercado',   'MOG200220MN7', 'compras@mercadoorganico.mx',  '$2b$10$4FjUuFNdmsU7sHXhMQDUXe56sJrhDnioPDffZTENosWAf.yXwmZw.', '333-789-0123', 'Av. Chapultepec Sur 15, Col. Americana',    'Guadalajara',      'Jalisco',      FALSE, '2025-05-10 09:00:00+00')
 ON CONFLICT (id) DO NOTHING;
 
 -- Usuarios Admin y User
 INSERT INTO usuarios (nombre, email, password, rol) VALUES
-('Administrador AgroLink', 'admin@agrolink.com', '$2b$10$jIbe3qYZ6/7ywE2OasA0NuJJ3n0bCO6Ma1r1Sj40WDdBALr4Qw2Od2', 'admin'),
-('Usuario Observador', 'user@agrolink.com', '$2b$10$jIbe3qYZ6/7ywE2OasA0NuJJ3n0bCO6Ma1r1Sj40WDdBALr4Qw2Od2', 'user')
+('Administrador AgroLink', 'admin@agrolink.com', '$2b$10$4FjUuFNdmsU7sHXhMQDUXe56sJrhDnioPDffZTENosWAf.yXwmZw.', 'admin'),
+('Usuario Observador', 'user@agrolink.com', '$2b$10$4FjUuFNdmsU7sHXhMQDUXe56sJrhDnioPDffZTENosWAf.yXwmZw.', 'user')
 ON CONFLICT (email) DO NOTHING;
 
 SELECT setval('empresas_id_seq', (SELECT MAX(id) FROM empresas));
