@@ -11,14 +11,14 @@ export async function GET(request: NextRequest) {
     page: searchParams.get("page") ? Number(searchParams.get("page")) : 1,
     limit: searchParams.get("limit") ? Math.min(Number(searchParams.get("limit")), 100) : 20,
   }
-  const result = db.getProductos(filters)
+  const result = await db.getProductos(filters)
   return NextResponse.json(result)
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const producto = db.createProducto(body)
+    const producto = await db.createProducto(body)
     return NextResponse.json(producto, { status: 201 })
   } catch {
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
