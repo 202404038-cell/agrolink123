@@ -1,6 +1,29 @@
 import { NextRequest, NextResponse } from "next/server"
 import { db } from "./db"
 import type { ApiResponse } from "./types"
+import { SignJWT, jwtVerify } from "jose"
+import { cookies } from "next/headers"
+
+const SECRET = new TextEncoder().encode(process.env.JWT_SECRET || "agrolink_secret_key_2026")
+
+export async function createToken(payload: any) {
+  return await new SignJWT(payload)
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime("24h")
+    .sign(SECRET)
+}
+
+export async function getSession() {
+  const token = (await cookies()).get("session")?.value
+  if (!token) return null
+  try {
+    const { payload } = await jwtVerify(token, SECRET)
+    return payload as { empresaId: number; name: string; email: string }
+  } catch {
+    return null
+  }
+}
 
 export async function authenticateRequest(
   request: NextRequest

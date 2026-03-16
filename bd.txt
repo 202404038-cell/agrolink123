@@ -74,6 +74,7 @@ CREATE TABLE IF NOT EXISTS empresas (
   tipo tipo_empresa_type NOT NULL,
   rfc VARCHAR(13) NOT NULL UNIQUE,
   email VARCHAR(255) NOT NULL UNIQUE,
+  password VARCHAR(255) NOT NULL DEFAULT '$2b$10$EixZAYVK1VzKNzQbBZguHeqpZtHGW.6A23.K4.f0sC6X0bB1Q6t2q', -- Hash para 'agrolink123'
   telefono VARCHAR(20) DEFAULT '',
   direccion TEXT DEFAULT '',
   ciudad VARCHAR(100) DEFAULT '',

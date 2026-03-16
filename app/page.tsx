@@ -137,9 +137,14 @@ export default function LandingPage() {
             </Link>
           </div>
           <div className="flex items-center gap-3">
-            <Link href="/docs">
+            <Link href="/shop">
+              <Button variant="ghost" size="sm" className="hidden sm:flex text-primary hover:text-primary/80">
+                Mercado
+              </Button>
+            </Link>
+            <Link href="/login">
               <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
-                API Docs
+                Login
               </Button>
             </Link>
             <Link href="/dashboard">

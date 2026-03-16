@@ -219,6 +219,11 @@ class Database {
     return rows[0];
   }
 
+  async getEmpresaByEmail(email: string): Promise<(Empresa & { password?: string }) | undefined> {
+    const rows = await this.query<any>("SELECT * FROM empresas WHERE email = $1", [email]);
+    return rows[0];
+  }
+
   async createEmpresa(data: CreateEmpresaDTO): Promise<Empresa> {
     const rows = await this.query<Empresa>(
       `INSERT INTO empresas (nombre, tipo, rfc, email, telefono, direccion, ciudad, estado) 
