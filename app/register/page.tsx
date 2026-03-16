@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { Sprout, Building2, Lock, Mail, ArrowRight, Loader2, User, MapPin, Phone, FileText } from "lucide-react"
+import { Sprout, Building2, Lock, Mail, ArrowRight, Loader2, User, MapPin, Phone, FileText, Info } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
