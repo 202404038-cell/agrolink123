@@ -1,49 +1,66 @@
-import { type NextRequest } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/lib/db"
-import { errorResponse, successResponse } from "@/lib/auth"
-import { z } from "zod"
-
-const registerSchema = z.object({
-  nombre: z.string().min(1, "El nombre de la empresa es requerido").max(200),
-  tipo: z.enum(["restaurante", "supermercado", "distribuidor", "catering", "central_abasto"]),
-  rfc: z.string().min(12).max(13),
-  email: z.string().email("El email no es valido"),
-  telefono: z.string().max(20).optional(),
-  direccion: z.string().max(500).optional(),
-  ciudad: z.string().max(100).optional(),
-  estado: z.string().max(100).optional(),
-  api_key_nombre: z.string().min(1).max(100).optional(),
-})
+import { createToken, successResponse, errorResponse } from "@/lib/auth"
+import bcrypt from "bcryptjs"
+import { cookies } from "next/headers"
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const parsed = registerSchema.safeParse(body)
+    const { nombre, email, password, tipo, rfc, telefono, direccion, ciudad, estado } = body
 
-    if (!parsed.success) {
-      return errorResponse("VALIDATION_ERROR", parsed.error.errors.map((e) => e.message).join(", "))
+    if (!nombre || !email || !password || !tipo || !rfc) {
+      return errorResponse("MISSING_FIELDS", "Nombre, email, password, tipo y RFC son requeridos")
     }
 
-    const { api_key_nombre, ...empresaData } = parsed.data
+    // Verificar si ya existe el email
+    const existingEmail = await db.getEmpresaByEmail(email)
+    if (existingEmail) {
+      return errorResponse("ALREADY_EXISTS", "El correo ya está registrado")
+    }
 
-    // Create empresa
-    const empresa = db.createEmpresa(empresaData)
+    // Hashear password
+    const hashedPassword = await bcrypt.hash(password, 10)
 
-    // Create API key
-    const apiKey = db.createApiKey(empresa.id, api_key_nombre || `Produccion - ${empresa.nombre}`)
+    // Crear empresa
+    const empresa = await db.createEmpresa({
+      nombre,
+      email,
+      password: hashedPassword,
+      tipo,
+      rfc,
+      telefono,
+      direccion,
+      ciudad,
+      estado
+    } as any)
 
-    return successResponse(
-      {
-        empresa,
-        api_key: {
-          key: apiKey.api_key,
-          nombre: apiKey.nombre,
-          created_at: apiKey.created_at,
-        },
-      },
-      "Empresa registrada exitosamente. Guarda tu API key, no se mostrara de nuevo."
-    )
-  } catch {
-    return errorResponse("INVALID_BODY", "El cuerpo de la peticion no es JSON valido")
+    // Crear API Key por defecto para la empresa
+    await db.createApiKey(empresa.id, "Default Key (Web Generated)")
+
+    // Crear token de sesión
+    const token = await createToken({
+      empresaId: empresa.id,
+      name: empresa.nombre,
+      email: empresa.email
+    })
+
+    const cookieStore = await cookies()
+    cookieStore.set("session", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 60 * 60 * 24 // 1 day
+    })
+
+    return successResponse({
+      id: empresa.id,
+      nombre: empresa.nombre,
+      email: empresa.email
+    }, "Empresa registrada exitosamente")
+
+  } catch (error) {
+    console.error("Register error:", error)
+    return errorResponse("SERVER_ERROR", "Error interno del servidor")
   }
 }

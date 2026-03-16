@@ -224,11 +224,21 @@ class Database {
     return rows[0];
   }
 
-  async createEmpresa(data: CreateEmpresaDTO): Promise<Empresa> {
+  async createEmpresa(data: CreateEmpresaDTO & { password?: string }): Promise<Empresa> {
     const rows = await this.query<Empresa>(
-      `INSERT INTO empresas (nombre, tipo, rfc, email, telefono, direccion, ciudad, estado) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-      [data.nombre, data.tipo, data.rfc, data.email, data.telefono || "", data.direccion || "", data.ciudad || "", data.estado || ""]
+      `INSERT INTO empresas (nombre, tipo, rfc, email, password, telefono, direccion, ciudad, estado) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+      [
+        data.nombre, 
+        data.tipo, 
+        data.rfc, 
+        data.email, 
+        data.password || '$2b$10$EixZAYVK1VzKNzQbBZguHeqpZtHGW.6A23.K4.f0sC6X0bB1Q6t2q',
+        data.telefono || "", 
+        data.direccion || "", 
+        data.ciudad || "", 
+        data.estado || ""
+      ]
     );
     return rows[0];
   }
