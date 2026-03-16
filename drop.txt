@@ -1,0 +1,35 @@
+-- ============================================================
+-- AgroLink - Script de Limpieza (DROP) para PostgreSQL (Supabase)
+-- ============================================================
+
+-- 1. Eliminar Vistas (en orden para evitar errores de dependencia)
+DROP VIEW IF EXISTS v_productos_mas_vendidos CASCADE;
+DROP VIEW IF EXISTS v_ventas_por_empresa CASCADE;
+DROP VIEW IF EXISTS v_pedidos_completos CASCADE;
+DROP VIEW IF EXISTS v_productos_completos CASCADE;
+
+-- 2. Eliminar Triggers
+DROP TRIGGER IF EXISTS trg_actualizar_stock_entrega ON pedidos;
+DROP TRIGGER IF EXISTS trg_update_pedidos_timestamp ON pedidos;
+DROP TRIGGER IF EXISTS trg_update_productos_timestamp ON productos;
+
+-- 3. Eliminar Funciones
+DROP FUNCTION IF EXISTS fn_actualizar_stock_entrega();
+DROP FUNCTION IF EXISTS sp_cambiar_estado_pedido(INT, TEXT); -- Ajustar tipo si es necesario
+DROP FUNCTION IF EXISTS sp_crear_pedido(INT, TEXT, DATE);
+DROP FUNCTION IF EXISTS update_updated_at_column();
+
+-- 4. Eliminar Tablas (en orden inverso a las llaves foraneas)
+DROP TABLE IF EXISTS detalle_pedidos CASCADE;
+DROP TABLE IF EXISTS pedidos CASCADE;
+DROP TABLE IF EXISTS api_keys CASCADE;
+DROP TABLE IF EXISTS empresas CASCADE;
+DROP TABLE IF EXISTS productos CASCADE;
+DROP TABLE IF EXISTS categorias CASCADE;
+
+-- 5. Eliminar Tipos ENUM
+DROP TYPE IF EXISTS estado_pedido_type CASCADE;
+DROP TYPE IF EXISTS tipo_empresa_type CASCADE;
+DROP TYPE IF EXISTS unidad_medida_type CASCADE;
+
+SELECT 'Base de datos AgroLink limpiada (DROP) exitosamente' AS resultado;
