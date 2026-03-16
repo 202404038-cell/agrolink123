@@ -12,22 +12,23 @@ export async function POST(request: NextRequest) {
       return errorResponse("MISSING_FIELDS", "Email y contraseña son requeridos")
     }
 
-    const empresa = await db.getEmpresaByEmail(email)
-
-    if (!empresa) {
+    const user = await db.getEmpresaByEmail(email)
+    
+    if (!user) {
       return errorResponse("INVALID_CREDENTIALS", "Credenciales invalidas")
     }
 
-    const passwordMatch = await bcrypt.compare(password, empresa.password || "")
+    const passwordMatch = await bcrypt.compare(password, user.password || "")
 
     if (!passwordMatch) {
       return errorResponse("INVALID_CREDENTIALS", "Credenciales invalidas")
     }
 
     const token = await createToken({
-      empresaId: empresa.id,
-      name: empresa.nombre,
-      email: empresa.email
+      empresaId: user.id,
+      name: user.nombre,
+      email: user.email,
+      rol: user.rol
     })
 
     const cookieStore = await cookies()
@@ -39,9 +40,10 @@ export async function POST(request: NextRequest) {
     })
 
     return successResponse({
-      id: empresa.id,
-      nombre: empresa.nombre,
-      email: empresa.email
+      id: user.id,
+      nombre: user.nombre,
+      email: user.email,
+      rol: user.rol
     }, "Inicio de sesion exitoso")
 
   } catch (error) {

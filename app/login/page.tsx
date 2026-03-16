@@ -30,7 +30,12 @@ export default function LoginPage() {
 
       if (data.success) {
         toast.success("¡Bienvenido, " + data.data.nombre + "!")
-        router.push("/shop")
+        // Redirigir según el rol
+        if (data.data.rol === 'admin') {
+          router.push("/dashboard")
+        } else {
+          router.push("/shop")
+        }
         router.refresh()
       } else {
         toast.error(data.error?.message || "Error al iniciar sesión")

@@ -219,9 +219,13 @@ class Database {
     return rows[0];
   }
 
-  async getEmpresaByEmail(email: string): Promise<(Empresa & { password?: string }) | undefined> {
+  async getEmpresaByEmail(email: string): Promise<(Empresa & { password?: string, rol?: string }) | undefined> {
     const rows = await this.query<any>("SELECT * FROM empresas WHERE email = $1", [email]);
-    return rows[0];
+    if (rows.length > 0) return { ...rows[0], rol: 'empresa' };
+    
+    // Si no es empresa, buscar en usuarios
+    const userRows = await this.query<any>("SELECT * FROM usuarios WHERE email = $1", [email]);
+    return userRows[0];
   }
 
   async createEmpresa(data: CreateEmpresaDTO & { password?: string }): Promise<Empresa> {
