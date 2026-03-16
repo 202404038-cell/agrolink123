@@ -113,8 +113,8 @@ export default function LoginPage() {
             </Button>
             <div className="text-sm text-muted-foreground text-center">
               ¿No tienes cuenta?{" "}
-              <Link href="/docs#registro" className="text-primary hover:underline font-medium">
-                Contáctanos para registrar tu empresa
+              <Link href="/register" className="text-primary hover:underline font-medium">
+                ¡Regístrate aquí!
               </Link>
             </div>
           </CardFooter>
