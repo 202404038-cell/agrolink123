@@ -16,7 +16,10 @@ import {
   User,
   Sprout,
   Loader2,
-  Trash2
+  Trash2,
+  Copy,
+  ExternalLink,
+  Code
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -39,6 +42,7 @@ const fetcher = (url: string) => fetch(url).then((res) => res.json())
 export default function ShopPage() {
   const router = useRouter()
   const [session, setSession] = useState<any>(null)
+  const [apiKey, setApiKey] = useState<string>("")
   const [cart, setCart] = useState<{productoId: number, name: string, quantity: number, price: number}[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null)
@@ -47,11 +51,12 @@ export default function ShopPage() {
   const { data: categoriesData } = useSWR("/api/v1/categorias", fetcher)
 
   useEffect(() => {
-    fetch("/api/auth/session")
+    fetch("/api/auth/me")
       .then(res => res.json())
       .then(data => {
         if (data.success) {
           setSession(data.data)
+          setApiKey(data.data.apiKey)
         } else {
           router.push("/login")
         }
@@ -104,7 +109,7 @@ export default function ShopPage() {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
-          "X-API-Key": "ak_live_cocina_maria_2025_xK9mP2qR" // Placeholder or actual company key
+          "X-API-Key": apiKey
         },
         body: JSON.stringify({
           empresa_id: session.empresaId,
@@ -216,6 +221,54 @@ export default function ShopPage() {
                   <Button className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-lg shadow-primary/20" disabled={cart.length === 0} onClick={checkout}>
                     Confirmar Pedido
                   </Button>
+                </div>
+              </SheetContent>
+            </Sheet>
+
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button variant="outline" className="h-10 border-primary/30 hover:bg-primary/5 hidden lg:flex items-center gap-2">
+                  <Code className="h-4 w-4" /> Ver API Access
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-full sm:max-w-md">
+                <SheetHeader>
+                  <SheetTitle>Acceso API para Desarrolladores</SheetTitle>
+                  <SheetDescription>
+                    Usa esta llave para integrar nuestros productos y catálogos en tus propios sistemas.
+                  </SheetDescription>
+                </SheetHeader>
+                <div className="mt-8 space-y-6">
+                  <div className="p-4 rounded-xl bg-secondary/50 border border-border space-y-3">
+                    <p className="text-xs font-bold uppercase text-muted-foreground mr-auto tracking-widest text-left">Tu X-API-Key</p>
+                    <div className="flex items-center gap-2">
+                      <code className="flex-1 p-2 bg-background rounded border border-border text-xs break-all text-primary font-mono text-left">
+                        {apiKey}
+                      </code>
+                      <Button variant="ghost" size="icon" onClick={() => {
+                        navigator.clipboard.writeText(apiKey)
+                        toast.success("API Key copiada al portapapeles")
+                      }}>
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <h4 className="font-semibold flex items-center gap-2">
+                      <ExternalLink className="h-4 w-4 text-primary" /> Endpoints Recomendados
+                    </h4>
+                    <div className="space-y-3">
+                      <a href={`/api/v1/full_data?key=${apiKey}`} target="_blank" className="block p-3 rounded-lg border border-border hover:border-primary/50 hover:bg-primary/5 transition-all">
+                        <p className="font-medium text-sm">Full Data JSON</p>
+                        <p className="text-xs text-muted-foreground">Obtén todo el catálogo y estadísticas en un solo archivo.</p>
+                      </a>
+                      <a href={`/api/v1/productos?key=${apiKey}`} target="_blank" className="block p-3 rounded-lg border border-border hover:border-primary/50 hover:bg-primary/5 transition-all">
+                        <p className="font-medium text-sm">Solo Productos</p>
+                        <p className="text-xs text-muted-foreground">Listado completo de existencias en tiempo real.</p>
+                      </a>
+                    </div>
+                  </div>
                 </div>
               </SheetContent>
             </Sheet>

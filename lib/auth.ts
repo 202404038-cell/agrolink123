@@ -28,7 +28,12 @@ export async function getSession() {
 export async function authenticateRequest(
   request: NextRequest
 ): Promise<{ authenticated: true; empresaId: number; empresaNombre: string } | NextResponse<ApiResponse>> {
-  const apiKey = request.headers.get("X-API-Key")
+  let apiKey = request.headers.get("X-API-Key")
+  
+  if (!apiKey) {
+    const { searchParams } = new URL(request.url)
+    apiKey = searchParams.get("key")
+  }
 
   if (!apiKey) {
     return NextResponse.json<ApiResponse>(
