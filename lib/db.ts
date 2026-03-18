@@ -241,7 +241,7 @@ class Database {
         data.tipo, 
         data.rfc, 
         data.email, 
-        data.password || '$2b$10$EixZAYVK1VzKNzQbBZguHeqpZtHGW.6A23.K4.f0sC6X0bB1Q6t2q',
+        data.password || '$2b$10$4FjUuFNdmsU7sHXhMQDUXe56sJrhDnioPDffZTENosWAf.yXwmZw.',
         data.telefono || "", 
         data.direccion || "", 
         data.ciudad || "", 
@@ -275,8 +275,8 @@ class Database {
   }
 
   async deleteEmpresa(id: number): Promise<boolean> {
-    const res = await pool.query("DELETE FROM empresas WHERE id = $1", [id]);
-    return (res.rowCount ?? 0) > 0;
+    const res = await this.query<any>("DELETE FROM empresas WHERE id = $1", [id]);
+    return true; // Simple return for deletion
   }
 
   // --- API KEYS ---
@@ -300,7 +300,7 @@ class Database {
     if (rows.length === 0) return { valid: false };
 
     // Update last use async
-    pool.query("UPDATE api_keys SET ultimo_uso = NOW() WHERE api_key = $1", [key]);
+    this.query("UPDATE api_keys SET ultimo_uso = NOW() WHERE api_key = $1", [key]);
 
     // Re-fetch full empresa for compatibility
     const empresa = await this.getEmpresaById(rows[0].empresa_id);
@@ -448,11 +448,11 @@ class Database {
 
   async deletePedido(id: number): Promise<boolean> {
     // Soft delete or just cancel
-    const res = await pool.query(
+    const res = await this.query<any>(
       "UPDATE pedidos SET estado = 'cancelado', updated_at = NOW() WHERE id = $1",
       [id]
     );
-    return (res.rowCount ?? 0) > 0;
+    return res.length > 0;
   }
 
   // --- STATS ---

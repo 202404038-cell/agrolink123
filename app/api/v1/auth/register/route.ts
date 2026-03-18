@@ -10,8 +10,11 @@ export async function POST(request: NextRequest) {
     const { nombre, email, password, tipo, rfc, telefono, direccion, ciudad, estado } = body
 
     if (!nombre || !email || !password || !tipo || !rfc) {
+      console.log(`[Register Failed] Missing fields: ${JSON.stringify({ nombre: !!nombre, email: !!email, password: !!password, tipo: !!tipo, rfc: !!rfc })}`);
       return errorResponse("MISSING_FIELDS", "Nombre, email, password, tipo y RFC son requeridos")
     }
+    
+    console.log(`[Register Attempt] Email: ${email}, Empresa: ${nombre}`);
 
     // Verificar si ya existe el email
     const existingEmail = await db.getEmpresaByEmail(email)
@@ -59,8 +62,8 @@ export async function POST(request: NextRequest) {
       email: empresa.email
     }, "Empresa registrada exitosamente")
 
-  } catch (error) {
-    console.error("Register error:", error)
-    return errorResponse("SERVER_ERROR", "Error interno del servidor")
+  } catch (error: any) {
+    console.error(`[Register ERROR] ${error.message}`, error);
+    return errorResponse("SERVER_ERROR", `Error interno del servidor: ${error.message}`, 500)
   }
 }
