@@ -52,9 +52,15 @@ export default function ShopPage() {
   const [isShowingJSON, setIsShowingJSON] = useState(false)
   const [isFetchingJSON, setIsFetchingJSON] = useState(false)
 
+  const [isShowingXML, setIsShowingXML] = useState(false);
+  const [isShowingTXT, setIsShowingTXT] = useState(false);
+
   const { data: productsData, error: productsError } = useSWR("/api/v1/productos", fetcher)
   const { data: categoriesData } = useSWR("/api/v1/categorias", fetcher)
-
+  const [viewData, setViewData] = useState<string | null>(null); // Guardará el texto formateado
+  const [viewType, setViewType] = useState<'json' | 'xml' | 'txt' | null>(null);
+  const [isFetching, setIsFetching] = useState(false);
+  
   useEffect(() => {
     fetch("/api/auth/me")
       .then(res => res.json())
@@ -66,6 +72,38 @@ export default function ShopPage() {
           router.push("/login")
         }
       })
+
+    // --- FUNCIÓN PARA XML ---
+const handleDownloadXML = () => {
+  if (!fullData) return;
+  // Conversión simple a XML
+  const xmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  ${Object.entries(fullData).map(([key, val]) => `<${key}>${JSON.stringify(val)}</${key}>`).join('\n  ')}
+</root>`;
+  
+  const blob = new Blob([xmlContent], { type: 'application/xml' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = "agro_data.xml";
+  link.click();
+};
+
+// --- FUNCIÓN PARA TXT ---
+const handleDownloadTXT = () => {
+  if (!fullData) return;
+  // Convertimos el JSON a un texto plano legible
+  const txtContent = JSON.stringify(fullData, null, 4).replace(/[{\|}|"|,]/g, "");
+  
+  const blob = new Blob([txtContent], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = "agro_data.txt";
+  link.click();
+};
+
   }, [router])
 
   const products: Producto[] = productsData?.data || []
@@ -103,7 +141,27 @@ export default function ShopPage() {
       return item
     }))
   }
+const handleDownloadXML = () => {
+    if (!fullData) return;
+    const xmlContent = `<?xml version="1.0" encoding="UTF-8"?><root>${JSON.stringify(fullData)}</root>`;
+    const blob = new Blob([xmlContent], { type: 'application/xml' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = "agro_data.xml";
+    link.click();
+  };
 
+  const handleDownloadTXT = () => {
+    if (!fullData) return;
+    const txtContent = JSON.stringify(fullData, null, 4);
+    const blob = new Blob([txtContent], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = "agro_data.txt";
+    link.click();
+  };
   const totalCart = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0)
 
   async function checkout() {
@@ -180,8 +238,51 @@ export default function ShopPage() {
       </div>
     )
   }
+<div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+  {/* OPCIÓN XML */}
+  <div className="border rounded-lg p-4 bg-card">
+    <p className="font-bold text-sm mb-1">Formato XML</p>
+    <p className="text-xs text-muted-foreground mb-3">Estructura jerárquica para sistemas antiguos.</p>
+    <button 
+      onClick={() => { setIsShowingXML(!isShowingXML); if(!fullData) handleToggleJSON(); }}
+      className="w-full bg-secondary text-secondary-foreground py-2 rounded-md text-xs hover:bg-secondary/80 transition"
+    >
+      {isShowingXML ? "Cerrar Vista" : "Ver / Descargar XML"}
+    </button>
+    
+    {isShowingXML && fullData && (
+      <div className="mt-2">
+        <button onClick={handleDownloadXML} className="w-full mb-2 bg-green-600 text-white py-1 rounded text-[10px]">Descargar .xml</button>
+        <pre className="p-2 text-[9px] bg-black text-blue-300 max-h-32 overflow-auto rounded">
+          {`<?xml version="1.0" ... ?>\n<root>...`}
+        </pre>
+      </div>
+    )}
+  </div>
 
+  {/* OPCIÓN TXT */}
+  <div className="border rounded-lg p-4 bg-card">
+    <p className="font-bold text-sm mb-1">Formato TXT</p>
+    <p className="text-xs text-muted-foreground mb-3">Texto plano ideal para logs o lectura rápida.</p>
+    <button 
+      onClick={() => { setIsShowingTXT(!isShowingTXT); if(!fullData) handleToggleJSON(); }}
+      className="w-full bg-secondary text-secondary-foreground py-2 rounded-md text-xs hover:bg-secondary/80 transition"
+    >
+      {isShowingTXT ? "Cerrar Vista" : "Ver / Descargar TXT"}
+    </button>
+
+    {isShowingTXT && fullData && (
+      <div className="mt-2">
+        <button onClick={handleDownloadTXT} className="w-full mb-2 bg-slate-600 text-white py-1 rounded text-[10px]">Descargar .txt</button>
+        <pre className="p-2 text-[9px] bg-black text-yellow-200 max-h-32 overflow-auto rounded">
+          {JSON.stringify(fullData, null, 2).substring(0, 200)}...
+        </pre>
+      </div>
+    )}
+  </div>
+</div>
   return (
+    
     <div className="min-h-screen bg-background text-foreground pb-20">
       {/* Header */}
       <header className="sticky top-0 z-40 w-full border-b border-border/50 bg-background/80 backdrop-blur-md">
