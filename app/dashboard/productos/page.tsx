@@ -312,7 +312,7 @@ export default function ProductosPage() {
                       {getCatName(p.categoria_id)}
                     </td>
                     <td className="px-3 py-3 font-mono">
-                      ${p.precio_mayoreo.toFixed(2)}
+                      ${Number(p.precio_mayoreo || 0).toFixed(2)}
                     </td>
                     <td className="px-3 py-3 font-mono">
                       {p.cantidad_disponible.toLocaleString()}

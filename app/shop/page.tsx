@@ -348,7 +348,7 @@ export default function ShopPage() {
               <CardContent className="p-4 pt-4 flex-1">
                 <div className="flex items-baseline justify-between">
                   <div className="text-2xl font-black text-primary">
-                    ${product.precio_mayoreo.toFixed(2)}
+                    ${Number(product.precio_mayoreo || 0).toFixed(2)}
                   </div>
                   <div className="text-xs text-muted-foreground">
                     En stock: <span className="font-bold text-foreground">{product.cantidad_disponible}</span>
