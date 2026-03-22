@@ -142,15 +142,17 @@ const handleDownloadTXT = () => {
     }))
   }
 const handleDownloadXML = () => {
-    if (!fullData) return;
-    const xmlContent = `<?xml version="1.0" encoding="UTF-8"?><root>${JSON.stringify(fullData)}</root>`;
-    const blob = new Blob([xmlContent], { type: 'application/xml' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = "agro_data.xml";
-    link.click();
-  };
+  if (!fullData) return;
+  // Convertimos el objeto a un XML básico
+  const xmlContent = `<?xml version="1.0" encoding="UTF-8"?><root>${JSON.stringify(fullData)}</root>`;
+  const blob = new Blob([xmlContent], { type: 'application/xml' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = "agro_data.xml";
+  link.click();
+  URL.revokeObjectURL(url);
+};
 
   const handleDownloadTXT = () => {
     if (!fullData) return;
