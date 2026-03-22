@@ -47,6 +47,11 @@ export default function ShopPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null)
 
+  // Se agrega nuevos useState para Full Data JSON
+  const [fullData, setFullData] = useState<any>(null)
+  const [isShowingJSON, setIsShowingJSON] = useState(false)
+  const [isFetchingJSON, setIsFetchingJSON] = useState(false)
+
   const { data: productsData, error: productsError } = useSWR("/api/v1/productos", fetcher)
   const { data: categoriesData } = useSWR("/api/v1/categorias", fetcher)
 
@@ -136,6 +141,36 @@ export default function ShopPage() {
   async function handleLogout() {
     await fetch("/api/v1/auth/logout", { method: "POST" })
     router.push("/login")
+  }
+
+  // Funciones para manejar la visualización y descarga del JSON completo
+
+  const handleToggleJSON = async () => {
+    if (isShowingJSON) {
+      setIsShowingJSON(false)
+      return;
+    }
+
+    setIsFetchingJSON(true)
+    try {
+      const response = await fetch(`/api/v1/full_data?key=${apiKey}`)
+      const data = await response.json()
+      setFullData(data)
+      setIsShowingJSON(true)
+    } catch (error) {
+      console.error("Error: ", error)
+    } finally {
+      setIsFetchingJSON(false)
+    }
+  }
+
+  const handleDownloadJSON = () => {
+    const blob = new Blob([JSON.stringify(fullData, null, 2)], { type: "application/json" })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.href = url
+    link.download = "agrolink_full_data.json"
+    link.click()
   }
 
   if (!session) {
@@ -258,11 +293,36 @@ export default function ShopPage() {
                     <h4 className="font-semibold flex items-center gap-2">
                       <ExternalLink className="h-4 w-4 text-primary" /> Endpoints Recomendados
                     </h4>
+
+                    {/* Nuevo Full Data JSON */}
                     <div className="space-y-3">
-                      <a href={`/api/v1/full_data?key=${apiKey}`} target="_blank" className="block p-3 rounded-lg border border-border hover:border-primary/50 hover:bg-primary/5 transition-all">
+                      <button 
+                        onClick={handleToggleJSON}
+                        disabled={isFetchingJSON}
+                        className="w-full text-left block p-3 rounded-lg border border-border hover:bg-accent transition-colors disabled:opacity-50"
+                      >
                         <p className="font-medium text-sm">Full Data JSON</p>
-                        <p className="text-xs text-muted-foreground">Obtén todo el catálogo y estadísticas en un solo archivo.</p>
-                      </a>
+                        <p className="text-xs text-muted-foreground">
+                          {isFetchingJSON ? "Cargando..." : isShowingJSON ? "Click para cerrar vista previa" : "Obtén todo el catálogo y estadísticas en un solo archivo."}
+                        </p>
+                      </button>
+                      {/* Panel de visualizacion dinámica */}
+                      {isShowingJSON && fullData && (
+                        <div className="mt-4 border rounded-lg bg-slate-950 overflow-hidden shadow-xl">
+                          <div className="flex items-center justify-between p-2 border-b border-slate-800 bg-slate-900/50">
+                            <span className="text-[10px] font-mono text-slate-400 px-2">full_data.json</span>
+                            <button 
+                              onClick={handleDownloadJSON}
+                              className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded transition-colors"
+                            >
+                              Descargar JSON
+                            </button>
+                          </div>
+                          <pre className="p-4 text-[10px] font-mono overflow-auto max-h-80 text-green-400 custom-scrollbar">
+                            {JSON.stringify(fullData, null, 2)}</pre>
+                        </div>
+                      )}
+
                       <a href={`/api/v1/productos?key=${apiKey}`} target="_blank" className="block p-3 rounded-lg border border-border hover:border-primary/50 hover:bg-primary/5 transition-all">
                         <p className="font-medium text-sm">Solo Productos</p>
                         <p className="text-xs text-muted-foreground">Listado completo de existencias en tiempo real.</p>
