@@ -4,378 +4,162 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import useSWR from "swr"
 import { 
-  ShoppingCart, 
-  Package, 
-  Search, 
-  Filter, 
-  Plus, 
-  Minus, 
-  Check, 
-  Info, 
-  LogOut,
-  User,
-  Sprout,
-  Loader2,
-  Trash2,
-  Copy,
-  ExternalLink,
-  Code
+  FileText, FileCode, ShoppingCart, Search, 
+  User, Sprout, Loader2, Code, Copy
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { 
-  Sheet, 
-  SheetContent, 
-  SheetDescription, 
-  SheetHeader, 
-  SheetTitle, 
-  SheetTrigger,
-  SheetFooter
-} from "@/components/ui/sheet"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { toast } from "sonner"
-import type { Producto, Categoria } from "@/lib/types"
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json())
+const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 export default function ShopPage() {
-  const router = useRouter()
-  const [session, setSession] = useState<any>(null)
-  const [apiKey, setApiKey] = useState<string>("")
-  const [cart, setCart] = useState<{productoId: number, name: string, quantity: number, price: number}[]>([])
-  const [searchTerm, setSearchTerm] = useState("")
-  const [selectedCategory, setSelectedCategory] = useState<number | null>(null)
+  const router = useRouter();
+  const [session, setSession] = useState<any>(null);
+  const [apiKey, setApiKey] = useState<string>("");
+  const [cart, setCart] = useState<any[]>([]); 
+  const [searchTerm, setSearchTerm] = useState("");
+  const [isShowingJSON, setIsShowingJSON] = useState(false);
 
-  const { data: productsData, error: productsError } = useSWR("/api/v1/productos", fetcher)
-  const { data: categoriesData } = useSWR("/api/v1/categorias", fetcher)
+  const { data: productsData } = useSWR("/api/v1/productos", fetcher);
 
   useEffect(() => {
     fetch("/api/auth/me")
       .then(res => res.json())
       .then(data => {
-        if (data.success) {
-          setSession(data.data)
-          setApiKey(data.data.apiKey)
+        if (data.authenticated) {
+          setSession(data.user);
+          setApiKey(data.user.apiKey || "");
         } else {
-          router.push("/login")
+          router.push("/login");
         }
-      })
-  }, [router])
+      });
+  }, [router]);
 
-  const products: Producto[] = productsData?.data || []
-  const categories: Categoria[] = categoriesData?.data || []
+  // FUNCIONES DE DESCARGA
+  const handleDownloadJSON = () => {
+    if (!productsData) return;
+    const blob = new Blob([JSON.stringify(productsData, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "agro_data.json";
+    link.click();
+  };
 
-  const filteredProducts = products.filter(p => {
-    const matchesSearch = p.nombre.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesCategory = selectedCategory ? p.categoria_id === selectedCategory : true
-    return matchesSearch && matchesCategory && p.activo
-  })
+  const handleDownloadXML = () => {
+    if (!productsData) return;
+    const xmlContent = `<?xml version="1.0" encoding="UTF-8"?><productos>${productsData?.productos?.map((p: any) => `<item><nombre>${p.nombre}</nombre><precio>${p.precio_mayoreo}</precio></item>`).join('')}</productos>`;
+    const blob = new Blob([xmlContent], { type: 'application/xml' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "agro_data.xml";
+    link.click();
+  };
 
-  function addToCart(product: Producto) {
-    setCart(prev => {
-      const existing = prev.find(item => item.productoId === product.id)
-      if (existing) {
-        return prev.map(item => 
-          item.productoId === product.id ? { ...item, quantity: item.quantity + 1 } : item
-        )
-      }
-      return [...prev, { productoId: product.id, name: product.nombre, quantity: 1, price: product.precio_mayoreo }]
-    })
-    toast.success(`${product.nombre} añadido al carrito`)
-  }
+  const handleDownloadTXT = () => {
+    if (!productsData) return;
+    const txtContent = productsData?.productos?.map((p: any) => `${p.nombre} - $${p.precio_mayoreo}`).join('\n');
+    const blob = new Blob([txtContent], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "agro_data.txt";
+    link.click();
+  };
 
-  function removeFromCart(id: number) {
-    setCart(prev => prev.filter(item => item.productoId !== id))
-  }
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success("URL Local copiada");
+  };
 
-  function updateQuantity(id: number, delta: number) {
-    setCart(prev => prev.map(item => {
-      if (item.productoId === id) {
-        const newQty = Math.max(1, item.quantity + delta)
-        return { ...item, quantity: newQty }
-      }
-      return item
-    }))
-  }
-
-  const totalCart = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0)
-
-  async function checkout() {
-    if (cart.length === 0) return
-
-    try {
-      const res = await fetch("/api/v1/pedidos", {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "X-API-Key": apiKey
-        },
-        body: JSON.stringify({
-          empresa_id: session.empresaId,
-          notas: "Pedido realizado desde la web shop",
-          items: cart.map(item => ({
-            producto_id: item.productoId,
-            cantidad: item.quantity
-          }))
-        })
-      })
-
-      const data = await res.json()
-      if (data.success) {
-        toast.success("¡Pedido realizado con éxito!")
-        setCart([])
-      } else {
-        toast.error("Error al realizar el pedido: " + data.error?.message)
-      }
-    } catch (err) {
-      toast.error("Error al conectar con el servidor")
-    }
-  }
-
-  async function handleLogout() {
-    await fetch("/api/v1/auth/logout", { method: "POST" })
-    router.push("/login")
-  }
-
-  if (!session) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    )
-  }
+  if (!session) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-emerald-600" /></div>;
 
   return (
-    <div className="min-h-screen bg-background text-foreground pb-20">
-      {/* Header */}
-      <header className="sticky top-0 z-40 w-full border-b border-border/50 bg-background/80 backdrop-blur-md">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
-          <div className="flex items-center gap-2">
-            <Sprout className="h-6 w-6 text-primary" />
-            <span className="text-xl font-bold tracking-tight">AgroLink Market</span>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-secondary/50 border border-border">
-              <User className="h-4 w-4 text-primary" />
-              <span className="text-sm font-medium">{session.name}</span>
-            </div>
-
-            <Sheet>
-              <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" className="relative h-10 w-10">
-                  <ShoppingCart className="h-5 w-5" />
-                  {cart.length > 0 && (
-                    <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
-                      {cart.length}
-                    </span>
-                  )}
-                </Button>
-              </SheetTrigger>
-              <SheetContent className="w-full sm:max-w-md bg-card/95 backdrop-blur-md border-l border-border/50">
-                <SheetHeader>
-                  <SheetTitle className="flex items-center gap-2">
-                    <ShoppingCart className="h-5 w-5" /> Tu Carrito
-                  </SheetTitle>
-                  <SheetDescription>
-                    Revisa los productos seleccionados antes de confirmar tu pedido.
-                  </SheetDescription>
-                </SheetHeader>
-                
-                <div className="mt-8 space-y-4 max-h-[60vh] overflow-auto pr-2">
-                  {cart.length === 0 ? (
-                    <div className="text-center py-10 opacity-50">
-                      <ShoppingCart className="h-12 w-12 mx-auto mb-4" />
-                      <p>Sú carrito está vacío</p>
-                    </div>
-                  ) : (
-                    cart.map((item) => (
-                      <div key={item.productoId} className="flex items-center gap-4 p-3 rounded-lg bg-secondary/30 border border-border/50">
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate text-sm">{item.name}</p>
-                          <p className="text-xs text-muted-foreground">${item.price.toFixed(2)} / unidad</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button variant="outline" size="icon" className="h-7 w-7 rounded-sm" onClick={() => updateQuantity(item.productoId, -1)}>
-                            <Minus className="h-3 w-3" />
-                          </Button>
-                          <span className="w-4 text-center text-sm font-medium">{item.quantity}</span>
-                          <Button variant="outline" size="icon" className="h-7 w-7 rounded-sm" onClick={() => updateQuantity(item.productoId, 1)}>
-                            <Plus className="h-3 w-3" />
-                          </Button>
-                        </div>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive/70 hover:text-destructive hover:bg-destructive/10" onClick={() => removeFromCart(item.productoId)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))
-                  )}
-                </div>
-
-                <div className="mt-auto pt-6 border-t border-border">
-                  <div className="flex items-center justify-between mb-6">
-                    <span className="text-muted-foreground">Total Estimado</span>
-                    <span className="text-2xl font-bold">${totalCart.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
-                  </div>
-                  <Button className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-lg shadow-primary/20" disabled={cart.length === 0} onClick={checkout}>
-                    Confirmar Pedido
-                  </Button>
-                </div>
-              </SheetContent>
-            </Sheet>
-
-            <Sheet>
-              <SheetTrigger asChild>
-                <Button variant="outline" className="h-10 border-primary/30 hover:bg-primary/5 hidden lg:flex items-center gap-2">
-                  <Code className="h-4 w-4" /> Ver API Access
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="right" className="w-full sm:max-w-md">
-                <SheetHeader>
-                  <SheetTitle>Acceso API para Desarrolladores</SheetTitle>
-                  <SheetDescription>
-                    Usa esta llave para integrar nuestros productos y catálogos en tus propios sistemas.
-                  </SheetDescription>
-                </SheetHeader>
-                <div className="mt-8 space-y-6">
-                  <div className="p-4 rounded-xl bg-secondary/50 border border-border space-y-3">
-                    <p className="text-xs font-bold uppercase text-muted-foreground mr-auto tracking-widest text-left">Tu X-API-Key</p>
-                    <div className="flex items-center gap-2">
-                      <code className="flex-1 p-2 bg-background rounded border border-border text-xs break-all text-primary font-mono text-left">
-                        {apiKey}
-                      </code>
-                      <Button variant="ghost" size="icon" onClick={() => {
-                        navigator.clipboard.writeText(apiKey)
-                        toast.success("API Key copiada al portapapeles")
-                      }}>
-                        <Copy className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-4">
-                    <h4 className="font-semibold flex items-center gap-2">
-                      <ExternalLink className="h-4 w-4 text-primary" /> Endpoints Recomendados
-                    </h4>
-                    <div className="space-y-3">
-                      <a href={`/api/v1/full_data?key=${apiKey}`} target="_blank" className="block p-3 rounded-lg border border-border hover:border-primary/50 hover:bg-primary/5 transition-all">
-                        <p className="font-medium text-sm">Full Data JSON</p>
-                        <p className="text-xs text-muted-foreground">Obtén todo el catálogo y estadísticas en un solo archivo.</p>
-                      </a>
-                      <a href={`/api/v1/productos?key=${apiKey}`} target="_blank" className="block p-3 rounded-lg border border-border hover:border-primary/50 hover:bg-primary/5 transition-all">
-                        <p className="font-medium text-sm">Solo Productos</p>
-                        <p className="text-xs text-muted-foreground">Listado completo de existencias en tiempo real.</p>
-                      </a>
-                    </div>
-                  </div>
-                </div>
-              </SheetContent>
-            </Sheet>
-
-            <Button variant="ghost" size="icon" onClick={handleLogout} className="text-muted-foreground hover:text-destructive transition-colors">
-              <LogOut className="h-5 w-5" />
-            </Button>
-          </div>
+    <div className="min-h-screen bg-background">
+      <header className="border-b bg-background/80 backdrop-blur-md sticky top-0 z-40 h-16 flex items-center px-6 justify-between">
+        <div className="flex items-center gap-2">
+          <Sprout className="h-6 w-6 text-emerald-600" />
+          <span className="text-xl font-bold">AgroLink</span>
         </div>
+        <Button variant="ghost" size="icon" onClick={() => router.push("/profile")}><User className="h-5 w-5" /></Button>
       </header>
 
-      {/* Hero / Filter Section */}
-      <section className="bg-secondary/30 border-b border-border/50 py-8">
-        <div className="mx-auto max-w-7xl px-6">
-          <div className="flex flex-col md:flex-row gap-6 items-end justify-between">
-            <div className="space-y-4 w-full md:max-w-md">
-              <h2 className="text-3xl font-bold tracking-tight">Catálogo de Huerta</h2>
-              <div className="relative">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input 
-                  placeholder="Buscar frutas o verduras..." 
-                  className="pl-10 h-11 bg-background"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
-            </div>
-            
-            <div className="flex gap-2 overflow-x-auto pb-1 w-full md:w-auto mt-4 md:mt-0 no-scrollbar">
-              <Button 
-                variant={selectedCategory === null ? "default" : "outline"} 
-                size="sm" 
-                className="rounded-full px-4"
-                onClick={() => setSelectedCategory(null)}
-              >
-                Todos
-              </Button>
-              {categories.map(cat => (
-                <Button 
-                  key={cat.id} 
-                  variant={selectedCategory === cat.id ? "default" : "outline"} 
-                  size="sm" 
-                  className="rounded-full px-4 whitespace-nowrap"
-                  onClick={() => setSelectedCategory(cat.id)}
-                >
-                  {cat.nombre}
-                </Button>
-              ))}
-            </div>
+      <main className="mx-auto max-w-7xl px-6 py-8">
+        {/* BUSCADOR */}
+        <div className="flex flex-col md:flex-row gap-4 mb-6 items-center justify-between">
+          <div className="relative w-full max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input className="pl-10" placeholder="Buscar insumos..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
           </div>
+          <Button 
+            onClick={() => setIsShowingJSON(!isShowingJSON)} 
+            variant="outline"
+            className={`gap-2 ${isShowingJSON ? "border-emerald-500 text-emerald-600" : ""}`}
+          >
+            <Code className="h-4 w-4" /> API Access
+          </Button>
         </div>
-      </section>
 
-      {/* Product Grid */}
-      <main className="mx-auto max-w-7xl px-6 py-10">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {filteredProducts.map((product) => (
-            <Card key={product.id} className="group overflow-hidden border-border/50 bg-card/50 hover:bg-card hover:border-primary/30 transition-all duration-300 flex flex-col h-full">
-              <div className="h-48 bg-muted relative flex items-center justify-center overflow-hidden">
-                {product.imagen_url ? (
-                  <img src={product.imagen_url} alt={product.nombre} className="object-cover w-full h-full transform group-hover:scale-105 transition-transform duration-500" />
-                ) : (
-                  <Sprout className="h-16 w-16 text-primary/20" />
-                )}
-                <Badge className="absolute top-3 right-3 bg-background/80 backdrop-blur-md text-foreground border-border/50" variant="outline">
-                  {product.unidad_medida}
-                </Badge>
+        {/* PANEL API ACCESS (EL DE LA FOTO 2) */}
+        {isShowingJSON && (
+          <Card className="mb-8 border-emerald-200 bg-emerald-50/50 shadow-sm overflow-hidden">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <Code className="h-4 w-4 text-emerald-600" />
+                Developer API Access (Local)
+              </CardTitle>
+              <CardDescription className="text-xs">Usa estos recursos para integrar tus sistemas</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="rounded-lg bg-slate-950 p-4 border border-slate-800">
+                <p className="text-[10px] uppercase text-slate-500 font-bold mb-2 tracking-widest">Endpoint URL</p>
+                <div className="flex items-center justify-between gap-4">
+                  <code className="text-emerald-400 text-xs font-mono break-all">
+                    http://localhost:3000/api/v1/productos
+                  </code>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-emerald-400" onClick={() => copyToClipboard("http://localhost:3000/api/v1/productos")}>
+                    <Copy className="h-3 w-3" />
+                  </Button>
+                </div>
               </div>
-              <CardHeader className="p-4 pb-0">
-                <div className="flex items-start justify-between gap-2">
-                  <CardTitle className="text-lg font-bold group-hover:text-primary transition-colors">{product.nombre}</CardTitle>
-                </div>
-                <CardDescription className="line-clamp-2 text-xs h-8">
-                  {product.descripcion || "Producto fresco recolectado de la huerta AgroLink."}
-                </CardDescription>
+              
+              <div className="grid grid-cols-2 gap-3">
+                <Button onClick={handleDownloadXML} className="bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] h-9 font-bold">
+                  <FileCode className="mr-2 h-4 w-4" /> Descargar XML
+                </Button>
+                <Button onClick={handleDownloadTXT} className="bg-slate-700 hover:bg-slate-800 text-white text-[11px] h-9 font-bold">
+                  <FileText className="mr-2 h-4 w-4" /> Descargar TXT
+                </Button>
+              </div>
+              <Button variant="outline" size="sm" onClick={handleDownloadJSON} className="w-full text-[11px] h-9 border-dashed border-2">
+                Descargar JSON Completo
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* PRODUCTOS */}
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {productsData?.productos?.filter((p: any) => p.nombre.toLowerCase().includes(searchTerm.toLowerCase())).map((product: any) => (
+            <Card key={product.id} className="flex flex-col hover:shadow-lg transition-all">
+              <CardHeader className="p-4">
+                <Badge variant="outline" className="w-fit mb-2 text-emerald-700 border-emerald-200">{product.categoria_nombre}</Badge>
+                <CardTitle className="text-base">{product.nombre}</CardTitle>
+                <p className="text-lg font-bold text-emerald-700 mt-1">${product.precio_mayoreo}</p>
               </CardHeader>
-              <CardContent className="p-4 pt-4 flex-1">
-                <div className="flex items-baseline justify-between">
-                  <div className="text-2xl font-black text-primary">
-                    ${product.precio_mayoreo.toFixed(2)}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    En stock: <span className="font-bold text-foreground">{product.cantidad_disponible}</span>
-                  </div>
-                </div>
-              </CardContent>
-              <CardFooter className="p-4 pt-0">
-                <Button 
-                  className="w-full h-10 bg-primary/10 hover:bg-primary text-primary hover:text-primary-foreground border-primary/20 transition-all font-bold" 
-                  variant="outline"
-                  onClick={() => addToCart(product)}
-                >
-                  <Plus className="mr-2 h-4 w-4" /> Añadir
+              <CardFooter className="p-4 mt-auto pt-0">
+                <Button className="w-full bg-emerald-600 hover:bg-emerald-700 text-xs font-bold" onClick={() => toast.success("Añadido")}>
+                  Añadir al carrito
                 </Button>
               </CardFooter>
             </Card>
           ))}
         </div>
-        
-        {filteredProducts.length === 0 && (
-          <div className="text-center py-20">
-            <Package className="h-16 w-16 mx-auto mb-4 text-muted-foreground/30" />
-            <h3 className="text-xl font-bold">No se encontraron productos</h3>
-            <p className="text-muted-foreground">Intenta con otra búsqueda o categoría.</p>
-          </div>
-        )}
       </main>
     </div>
-  )
+  );
 }
