@@ -47,11 +47,12 @@ export default function ShopPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null)
 
-  // Se agrega nuevos useState para Full Data JSON
+  // Se agrega nuevos estados para Full Data JSON
   const [fullData, setFullData] = useState<any>(null)
   const [isShowingJSON, setIsShowingJSON] = useState(false)
   const [isFetchingJSON, setIsFetchingJSON] = useState(false)
 
+  // Se agrega nuevos estados para XML y TXT
   const [isShowingXML, setIsShowingXML] = useState(false);
   const [isShowingTXT, setIsShowingTXT] = useState(false);
 
