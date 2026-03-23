@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import useSWR from "swr"
 import { 
   FileText, FileCode, ShoppingCart, Search, 
-  User, Sprout, Loader2, Code
+  User, Sprout, Loader2, Code, Copy
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -21,9 +21,7 @@ export default function ShopPage() {
   const [apiKey, setApiKey] = useState<string>("");
   const [cart, setCart] = useState<any[]>([]); 
   const [searchTerm, setSearchTerm] = useState("");
-  const [fullData, setFullData] = useState<any>(null);
   const [isShowingJSON, setIsShowingJSON] = useState(false);
-  const [isFetchingJSON, setIsFetchingJSON] = useState(false);
 
   const { data: productsData } = useSWR("/api/v1/productos", fetcher);
 
@@ -40,10 +38,10 @@ export default function ShopPage() {
       });
   }, [router]);
 
-  // LOGICA DE DESCARGAS
+  // FUNCIONES DE DESCARGA
   const handleDownloadJSON = () => {
-    if (!fullData) return;
-    const blob = new Blob([JSON.stringify(fullData, null, 2)], { type: "application/json" });
+    if (!productsData) return;
+    const blob = new Blob([JSON.stringify(productsData, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
@@ -52,8 +50,8 @@ export default function ShopPage() {
   };
 
   const handleDownloadXML = () => {
-    if (!fullData) return;
-    const xmlContent = `<?xml version="1.0" encoding="UTF-8"?><productos>${productsData?.productos?.map((p: any) => `<item><id>${p.id}</id><nombre>${p.nombre}</nombre><precio>${p.precio_mayoreo}</precio></item>`).join('')}</productos>`;
+    if (!productsData) return;
+    const xmlContent = `<?xml version="1.0" encoding="UTF-8"?><productos>${productsData?.productos?.map((p: any) => `<item><nombre>${p.nombre}</nombre><precio>${p.precio_mayoreo}</precio></item>`).join('')}</productos>`;
     const blob = new Blob([xmlContent], { type: 'application/xml' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -63,8 +61,8 @@ export default function ShopPage() {
   };
 
   const handleDownloadTXT = () => {
-    if (!fullData) return;
-    const txtContent = productsData?.productos?.map((p: any) => `${p.nombre} - $${p.precio_mayoreo} / ${p.unidad_medida}`).join('\n');
+    if (!productsData) return;
+    const txtContent = productsData?.productos?.map((p: any) => `${p.nombre} - $${p.precio_mayoreo}`).join('\n');
     const blob = new Blob([txtContent], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -73,21 +71,12 @@ export default function ShopPage() {
     link.click();
   };
 
-  const fetchFullData = async () => {
-    setIsFetchingJSON(true);
-    try {
-      const res = await fetch("/api/v1/productos");
-      const data = await res.json();
-      setFullData(data);
-      setIsShowingJSON(!isShowingJSON);
-    } catch (error) {
-      toast.error("Error al obtener datos");
-    } finally {
-      setIsFetchingJSON(false);
-    }
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success("URL Local copiada");
   };
 
-  if (!session) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin" /></div>;
+  if (!session) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-emerald-600" /></div>;
 
   return (
     <div className="min-h-screen bg-background">
@@ -96,59 +85,71 @@ export default function ShopPage() {
           <Sprout className="h-6 w-6 text-emerald-600" />
           <span className="text-xl font-bold">AgroLink</span>
         </div>
-        <Button variant="ghost" size="icon" onClick={() => router.push("/profile")}><User /></Button>
+        <Button variant="ghost" size="icon" onClick={() => router.push("/profile")}><User className="h-5 w-5" /></Button>
       </header>
 
       <main className="mx-auto max-w-7xl px-6 py-8">
-        <div className="flex flex-col md:flex-row gap-4 mb-8 items-center justify-between">
+        {/* BUSCADOR */}
+        <div className="flex flex-col md:flex-row gap-4 mb-6 items-center justify-between">
           <div className="relative w-full max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input className="pl-10" placeholder="Buscar insumos..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
           </div>
-          <Button onClick={fetchFullData} variant="outline" className="gap-2">
+          <Button 
+            onClick={() => setIsShowingJSON(!isShowingJSON)} 
+            variant="outline"
+            className={`gap-2 ${isShowingJSON ? "border-emerald-500 text-emerald-600" : ""}`}
+          >
             <Code className="h-4 w-4" /> API Access
           </Button>
         </div>
 
-        {/* PANEL API ACCESS (IGUAL A TU FOTO 2) */}
+        {/* PANEL API ACCESS (EL DE LA FOTO 2) */}
         {isShowingJSON && (
-          <Card className="mb-8 border-emerald-200 bg-emerald-50/50">
+          <Card className="mb-8 border-emerald-200 bg-emerald-50/50 shadow-sm overflow-hidden">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium">Developer API Access</CardTitle>
-              <CardDescription className="text-xs">Usa estos recursos para integrar tus sistemas de gestión</CardDescription>
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <Code className="h-4 w-4 text-emerald-600" />
+                Developer API Access (Local)
+              </CardTitle>
+              <CardDescription className="text-xs">Usa estos recursos para integrar tus sistemas</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="rounded-lg bg-slate-950 p-4 border border-slate-800">
-                <p className="text-[10px] uppercase text-slate-500 font-bold mb-1 tracking-wider">Endpoint URL</p>
-                <code className="text-emerald-400 text-xs break-all">
-                  https://agrolink.render.com/api/v1/productos
-                </code>
+                <p className="text-[10px] uppercase text-slate-500 font-bold mb-2 tracking-widest">Endpoint URL</p>
+                <div className="flex items-center justify-between gap-4">
+                  <code className="text-emerald-400 text-xs font-mono break-all">
+                    http://localhost:3000/api/v1/productos
+                  </code>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-emerald-400" onClick={() => copyToClipboard("http://localhost:3000/api/v1/productos")}>
+                    <Copy className="h-3 w-3" />
+                  </Button>
+                </div>
               </div>
               
-              <div className="grid grid-cols-2 gap-2">
-                <Button size="sm" onClick={handleDownloadXML} className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] h-8 font-bold">
-                  <FileCode className="mr-1 h-3 w-3" /> Descargar XML
+              <div className="grid grid-cols-2 gap-3">
+                <Button onClick={handleDownloadXML} className="bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] h-9 font-bold">
+                  <FileCode className="mr-2 h-4 w-4" /> Descargar XML
                 </Button>
-                <Button size="sm" onClick={handleDownloadTXT} className="bg-slate-600 hover:bg-slate-700 text-white text-[10px] h-8 font-bold">
-                  <FileText className="mr-1 h-3 w-3" /> Descargar TXT
+                <Button onClick={handleDownloadTXT} className="bg-slate-700 hover:bg-slate-800 text-white text-[11px] h-9 font-bold">
+                  <FileText className="mr-2 h-4 w-4" /> Descargar TXT
                 </Button>
               </div>
-              <Button size="sm" variant="outline" onClick={handleDownloadJSON} className="w-full text-[10px] h-8 font-medium">
+              <Button variant="outline" size="sm" onClick={handleDownloadJSON} className="w-full text-[11px] h-9 border-dashed border-2">
                 Descargar JSON Completo
               </Button>
             </CardContent>
           </Card>
         )}
 
+        {/* PRODUCTOS */}
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {productsData?.productos?.filter((p: any) => p.nombre.toLowerCase().includes(searchTerm.toLowerCase())).map((product: any) => (
-            <Card key={product.id} className="flex flex-col hover:shadow-md transition-shadow">
+            <Card key={product.id} className="flex flex-col hover:shadow-lg transition-all">
               <CardHeader className="p-4">
-                <Badge variant="secondary" className="w-fit mb-2">{product.categoria_nombre}</Badge>
+                <Badge variant="outline" className="w-fit mb-2 text-emerald-700 border-emerald-200">{product.categoria_nombre}</Badge>
                 <CardTitle className="text-base">{product.nombre}</CardTitle>
-                <CardDescription className="font-bold text-emerald-700">
-                  ${product.precio_mayoreo} / {product.unidad_medida}
-                </CardDescription>
+                <p className="text-lg font-bold text-emerald-700 mt-1">${product.precio_mayoreo}</p>
               </CardHeader>
               <CardFooter className="p-4 mt-auto pt-0">
                 <Button className="w-full bg-emerald-600 hover:bg-emerald-700 text-xs font-bold" onClick={() => toast.success("Añadido")}>
