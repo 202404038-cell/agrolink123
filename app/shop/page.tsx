@@ -231,6 +231,6 @@ export default function ShopPage() {
           </Button>
         </div>
       )}
-    </div>
+   </div>
   );
 }
