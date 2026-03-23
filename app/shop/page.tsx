@@ -192,7 +192,7 @@ export default function ShopPage() {
               </SheetContent>
             </Sheet>
 
-            <Sheet>
+<Sheet>
               <SheetTrigger asChild>
                 <Button variant="outline" className="gap-2"><Code className="h-4 w-4" /> API Access</Button>
               </SheetTrigger>
@@ -211,10 +211,16 @@ export default function ShopPage() {
                     {isShowingJSON && fullData && (
                       <div className="space-y-2">
                         <div className="grid grid-cols-2 gap-2">
-                          <Button size="sm" onClick={handleDownloadXML} className="bg-emerald-600 text-white text-[10px] h-8">Descargar XML</Button>
-                          <Button size="sm" onClick={handleDownloadTXT} className="bg-slate-600 text-white text-[10px] h-8">Descargar TXT</Button>
+                          <Button size="sm" onClick={handleDownloadXML} className="bg-emerald-600 text-white text-[10px] h-8">
+                            Descargar XML
+                          </Button>
+                          <Button size="sm" onClick={handleDownloadTXT} className="bg-slate-600 text-white text-[10px] h-8">
+                            Descargar TXT
+                          </Button>
                         </div>
-                        <Button size="sm" variant="outline" onClick={handleDownloadJSON} className="w-full text-[10px] h-8">Descargar JSON</Button>
+                        <Button size="sm" variant="outline" onClick={handleDownloadJSON} className="w-full text-[10px] h-8">
+                          Descargar JSON
+                        </Button>
                         <pre className="p-2 bg-slate-950 text-green-400 text-[9px] rounded max-h-40 overflow-auto">
                           {JSON.stringify(fullData, null, 2)}
                         </pre>
