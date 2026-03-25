@@ -27,3 +27,5 @@ export async function GET() {
     return NextResponse.json({ error: 'Error de servidor', mensaje: error.message }, { status: 500 });
   }
 }
+
+// versión final sin errores
