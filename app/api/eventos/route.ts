@@ -2,11 +2,14 @@ import { NextResponse } from 'next/server';
 
 export async function GET() {
   try {
-    // CAMBIO: Se usa api_key con guion bajo (_)
+    // Asegúrate de que esta URL esté exactamente así, sin espacios ocultos
     const url = 'https://acapulco-api-m9yu.vercel.app/api/eventos?api_key=ak_live_grPNRbnqwFY7JOmFl4o23uTc';
     
     const res = await fetch(url, {
-      cache: 'no-store'
+      cache: 'no-store',
+      headers: {
+        'Content-Type': 'application/json'
+      }
     });
 
     const data = await res.json();
@@ -18,9 +21,9 @@ export async function GET() {
       }, { status: res.status });
     }
 
-    return NextResponse.json(data); // Si todo sale bien, aquí verás los eventos
+    return NextResponse.json(data);
     
   } catch (error: any) {
-    return NextResponse.json({ error: 'Error de conexión', mensaje: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Error de servidor', mensaje: error.message }, { status: 500 });
   }
 }
