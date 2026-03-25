@@ -7,13 +7,12 @@ export async function GET() {
     });
 
     if (!res.ok) {
-      return NextResponse.json({ error: 'Error en la API externa' }, { status: res.status });
+      return NextResponse.json({ error: 'Error en API externa' }, { status: res.status });
     }
 
     const data = await res.json();
     return NextResponse.json(data);
-    
-  } catch (error: any) {
-    return NextResponse.json({ error: 'Error interno', message: error.message }, { status: 500 });
+  } catch (error) {
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
