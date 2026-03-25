@@ -2,21 +2,18 @@ import { NextResponse } from 'next/server';
 
 export async function GET() {
   try {
-    // Consumiendo la API de Acapulco con tu API KEY
     const res = await fetch('https://acapulco-api-m9yu.vercel.app/api/eventos?apiKey=ak_live_grPNRbnqwFY7JOmFl4o23uTc', {
-      cache: 'no-store' // Esto obliga a traer datos frescos siempre
+      cache: 'no-store'
     });
 
     if (!res.ok) {
-      throw new Error('Error al obtener datos de la API externa');
+      return NextResponse.json({ error: 'Error en la API externa' }, { status: res.status });
     }
 
     const data = await res.json();
-
-    // Retornamos los datos a tu servidor de Render
     return NextResponse.json(data);
-  } catch (error) {
-    console.error("Error en API Eventos:", error);
-    return NextResponse.json({ error: 'Fallo al cargar eventos' }, { status: 500 });
+    
+  } catch (error: any) {
+    return NextResponse.json({ error: 'Error interno', message: error.message }, { status: 500 });
   }
 }
